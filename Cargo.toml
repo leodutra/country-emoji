@@ -1,7 +1,7 @@
 [package]
 name = "country-emoji"
 edition = "2018"
-version = "0.1.0"
+version = "0.1.1"
 description = "Converts between country names, ISO 3166-1 codes and flag emojis."
 readme = "README.md"
 keywords = ["emoji", "country", "flags", "ISO-3166-1", "BCP-47"]
@@ -10,6 +10,8 @@ authors = ["Leo Dutra <leodutra.br@gmail.com>"]
 repository = "https://github.com/leodutra/country-emoji"
 license = "MIT"
 license-file = "LICENSE"
+
+exclude = ["src/main.rs"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
