@@ -1,4 +1,4 @@
-use super::Country;
+use crate::Country;
 use std::collections::HashMap;
 
 lazy_static! {
