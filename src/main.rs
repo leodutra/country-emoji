@@ -1,4 +1,4 @@
-use country_emoji::{code_to_flag, flag_to_code};
+use country_emoji::{code_to_flag, flag_to_code, code, flag, name};
 
 fn main() {
     // println!("Hello, world! {}", COUNTRIES_MAP.get("BR").unwrap().name());
@@ -8,6 +8,35 @@ fn main() {
         flag_to_code(code_to_flag("BR").unwrap().as_str()).unwrap(),
         "BR"
     );
+    println!(
+        "Hello, world! {} == {}",
+        code("Republic of Moldova").unwrap(),
+        "MD"
+    );
+    println!(
+        "Hello, world! {} == {}",
+        flag("Republic of Moldova").unwrap(),
+        "🇲🇩"
+    );
+    println!(
+        "Hello, world! {} == {}",
+        flag("UK").unwrap(),
+        "🇬🇧"
+    );
+    println!(
+        "Hello, world! {} == {}",
+        name("🇬🇧").unwrap(),
+        "United Kingdom"
+    );
+    println!(
+        "Hello, world! {} == {}",
+        name("GB").unwrap(),
+        "United Kingdom"
+    );
+    // println!(
+    //     "{}",
+    //     CODE_RE.is_match("U1")
+    // )
     // let flag = code_to_flag(Some("AD")).unwrap();
     // println!("flag = {}", flag);
     // flag_to_code(&flag);
