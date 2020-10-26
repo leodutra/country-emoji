@@ -1,4 +1,5 @@
 // NOTE: update flag() whenever we add 2-letter country names
+// TODO: improve using https://github.com/bendodson/flag-emoji-from-country-code/blob/master/FlagPlayground.playground
 
 #[macro_use]
 extern crate lazy_static;
@@ -32,21 +33,21 @@ pub fn code(input: &str) -> Option<&'static str> {
 }
 
 pub fn flag(mut input: &str) -> Option<String> {
-	if !CODE_RE.is_match(input) || input == "UK" {
-		if let Some(code) = name_to_code(input) {
+    if !CODE_RE.is_match(input) || input == "UK" {
+        if let Some(code) = name_to_code(input) {
             input = code;
         }
-	}
-	code_to_flag(input) 
+    }
+    code_to_flag(input)
 }
 
 pub fn name(mut input: &str) -> Option<&'static str> {
-	if FLAG_RE.is_match(input) {
+    if FLAG_RE.is_match(input) {
         if let Some(code) = flag_to_code(input) {
             input = code;
         }
-	}
-	code_to_name(input)
+    }
+    code_to_name(input)
 }
 
 pub fn is_code(code: Option<&str>) -> bool {
@@ -110,45 +111,43 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
     }
 
     // inexact match lookup
-    let matches = COUNTRIES.iter().fold(vec![], 
-        |mut matches, country| {
-            for &n in &country.names {
-                if fuzzy_compare(&name, n) {
-                    matches.push(country.code)
-                }
+    let matches = COUNTRIES.iter().fold(vec![], |mut matches, country| {
+        for &n in &country.names {
+            if fuzzy_compare(&name, n) {
+                matches.push(country.code)
             }
-            matches
         }
-    );
+        matches
+    });
 
     if matches.len() == 1 {
         Some(matches[0])
     } else {
         None
-    }   
+    }
 }
 
 fn fuzzy_compare(input: &str, name: &str) -> bool {
     let name = name.to_lowercase();
 
-	// Cases like:
-	//    "Vatican" <-> "Holy See (Vatican City State)"
-	//    "Russia"  <-> "Russian Federation"
-	if name.contains(input) || input.contains(&name) {
-		return true;
-	}
+    // Cases like:
+    //    "Vatican" <-> "Holy See (Vatican City State)"
+    //    "Russia"  <-> "Russian Federation"
+    if name.contains(input) || input.contains(&name) {
+        return true;
+    }
 
-	// Cases like:
-	//    "British Virgin Islands" <-> "Virgin Islands, British"
-	//    "Republic of Moldova"    <-> "Moldova, Republic of"
-	if name.contains(',') {
+    // Cases like:
+    //    "British Virgin Islands" <-> "Virgin Islands, British"
+    //    "Republic of Moldova"    <-> "Moldova, Republic of"
+    if name.contains(',') {
         let mut name_parts: Vec<&str> = name.split(", ").collect();
         name_parts.reverse();
-		let reversed_name = name_parts.join(" ");
-		if reversed_name.contains(input) || input.contains(&reversed_name) {
-			return true;
-		}
-	}
+        let reversed_name = name_parts.join(" ");
+        if reversed_name.contains(input) || input.contains(&reversed_name) {
+            return true;
+        }
+    }
 
     false
 }

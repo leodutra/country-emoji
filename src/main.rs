@@ -1,4 +1,4 @@
-use country_emoji::{code_to_flag, flag_to_code, code, flag, name};
+use country_emoji::{code, code_to_flag, flag, flag_to_code, name};
 
 fn main() {
     // println!("Hello, world! {}", COUNTRIES_MAP.get("BR").unwrap().name());
@@ -18,11 +18,7 @@ fn main() {
         flag("Republic of Moldova").unwrap(),
         "🇲🇩"
     );
-    println!(
-        "Hello, world! {} == {}",
-        flag("UK").unwrap(),
-        "🇬🇧"
-    );
+    println!("Hello, world! {} == {}", flag("UK").unwrap(), "🇬🇧");
     println!(
         "Hello, world! {} == {}",
         name("🇬🇧").unwrap(),
