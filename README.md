@@ -1,4 +1,4 @@
-# country-emoji 
+# country-emoji
 
 [![crate.io](https://img.shields.io/crates/v/country-emoji)](https://crates.io/crates/country-emoji)
 

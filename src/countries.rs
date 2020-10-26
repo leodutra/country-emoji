@@ -252,6 +252,6 @@ lazy_static! {
         Country { code: "ZW", names: vec!["Zimbabwe", "Zimbabwean"] },
     ];
 
-    pub (crate) static ref COUNTRIES_MAP: HashMap<&'static str, Country> =
-        COUNTRIES.iter().cloned().map(|country| (country.code, country)).collect();
+    pub (crate) static ref COUNTRIES_MAP: HashMap<&'static str, &'static Country> =
+        COUNTRIES.iter().map(|country| (country.code, country)).collect();
 }
