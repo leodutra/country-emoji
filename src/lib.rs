@@ -13,7 +13,7 @@ const FLAG_MAGIC_NUMBER: u32 = 127397;
 // }
 
 #[derive(Clone)]
-pub (crate) struct Country {
+pub(crate) struct Country {
     code: &'static str,
     names: Vec<&'static str>,
 }
@@ -25,12 +25,14 @@ impl Country {
 }
 
 pub fn is_code(code: Option<&str>) -> bool {
-    code.map_or(false, |code| COUNTRIES_MAP.contains_key(code.to_uppercase().trim()))
+    code.map_or(false, |code| {
+        COUNTRIES_MAP.contains_key(code.trim().to_uppercase().as_str())
+    })
 }
 
 pub fn code_to_name(code: &str) -> Option<&'static str> {
     COUNTRIES_MAP
-        .get(code.to_uppercase().trim())
+        .get(code.trim().to_uppercase().as_str())
         .map(|country| country.name())
 }
 
@@ -50,6 +52,10 @@ pub fn code_to_flag(code: &str) -> Option<String> {
     }
 }
 
+pub fn code(input: &str) -> Option<&'static str> {
+    flag_to_code(input).or_else(|| name_to_code(input))
+}
+
 // pub fn is_country_flag(flag: &str) -> bool {
 //     FLAG_RE.is_match(flag)
 // }
@@ -64,4 +70,8 @@ pub fn flag_to_code(flag: &str) -> Option<&'static str> {
         }
     }
     COUNTRIES_MAP.get(code.as_str()).map(|country| country.code)
+}
+
+pub fn name_to_code(name: &str) -> Option<&'static str> {
+    None
 }

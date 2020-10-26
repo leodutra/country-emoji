@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use super::Country;
+use std::collections::HashMap;
 
-lazy_static!{
+lazy_static! {
     // TODO UPDATE LIST
     pub (crate) static ref COUNTRIES: [Country; 246] = [
         Country { code: "AD", names: vec!["Andorra", "Andorran"] },
@@ -251,6 +251,7 @@ lazy_static!{
         Country { code: "ZM", names: vec!["Zambia", "Zambian"] },
         Country { code: "ZW", names: vec!["Zimbabwe", "Zimbabwean"] },
     ];
+
     pub (crate) static ref COUNTRIES_MAP: HashMap<&'static str, Country> =
         COUNTRIES.iter().cloned().map(|country| (country.code, country)).collect();
 }
