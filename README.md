@@ -1,5 +1,6 @@
 # country-emoji 
-![](https://img.shields.io/crates/v/country-emoji)
+
+[![crate.io](https://img.shields.io/crates/v/country-emoji)](https://crates.io/crates/country-emoji)
 
 Converts between country names, ISO 3166-1 codes and flag emojis.
 
