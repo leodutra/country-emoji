@@ -120,6 +120,8 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
         matches
     });
 
+    // Return only when exactly one match was found
+	//   prevents cases like "United"
     if matches.len() == 1 {
         Some(matches[0])
     } else {
