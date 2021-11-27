@@ -9,6 +9,29 @@ use countries::{COUNTRIES, COUNTRIES_CODE_MAP, COUNTRIES_FLAG_MAP};
 
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
 
+
+#[derive(Clone)]
+pub(crate) struct Country {
+    code: &'static str,
+    flag: String,
+    names: Vec<&'static str>,
+}
+
+impl Country {
+    pub(crate) fn new(code: &'static str, names: Vec<&'static str>) -> Self {
+        Country {
+            code,
+            names,
+            flag: internal_code_to_flag(code),
+        }
+    }
+
+    pub(crate) fn name(&self) -> &'static str {
+        self.names[0]
+    }
+}
+
+
 fn trim_upper(text: &str) -> String {
     text.trim().to_uppercase()
 }
@@ -41,27 +64,6 @@ fn check_by_flag(flag: &str) -> bool {
 
 fn get_by_flag(flag: &str) -> Option<&'static Country> {
     COUNTRIES_FLAG_MAP.get(flag.trim()).map(|x| *x)
-}
-
-#[derive(Clone)]
-pub(crate) struct Country {
-    code: &'static str,
-    flag: String,
-    names: Vec<&'static str>,
-}
-
-impl Country {
-    pub(crate) fn new(code: &'static str, names: Vec<&'static str>) -> Self {
-        Country {
-            code,
-            names,
-            flag: internal_code_to_flag(code),
-        }
-    }
-
-    pub(crate) fn name(&self) -> &'static str {
-        self.names[0]
-    }
 }
 
 pub fn code(input: &str) -> Option<&'static str> {
