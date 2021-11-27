@@ -9,7 +9,6 @@ categories = ["encoding", "gui", "internationalization", "localization"]
 authors = ["Leo Dutra <leodutra.br@gmail.com>"]
 repository = "https://github.com/leodutra/country-emoji"
 license = "MIT"
-license-file = "LICENSE"
 
 exclude = ["src/main.rs"]
 
