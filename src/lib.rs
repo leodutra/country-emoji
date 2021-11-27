@@ -5,25 +5,61 @@
 extern crate lazy_static;
 
 mod countries;
+use countries::{COUNTRIES, COUNTRIES_CODE_MAP, COUNTRIES_FLAG_MAP};
 
-use countries::{COUNTRIES, COUNTRIES_MAP};
-use regex::Regex;
+const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
 
-const FLAG_MAGIC_NUMBER: u32 = 127397;
+fn trim_upper(text: &str) -> String {
+    text.trim().to_uppercase()
+}
 
-lazy_static! {
-    static ref FLAG_RE: Regex = Regex::new(r"^[\u{0001F1E6}-\u{0001F1FF}]{2}$").unwrap();
-    static ref CODE_RE: Regex = Regex::new(r"^(?i)[a-z]{2}$").unwrap();
+pub(crate) fn internal_code_to_flag(code: &'static str) -> String {
+    let mut flag = String::new();
+    for c in trim_upper(code).chars() {
+        if let Some(c) = std::char::from_u32(c as u32 + FLAG_MAGIC_NUMBER) {
+            flag.push(c);
+        } else {
+            panic!("Could not convert code \"{}\" to flag", code);
+        }
+    }
+    flag
+}
+
+fn check_by_code(code: &str) -> bool {
+    COUNTRIES_CODE_MAP.contains_key(trim_upper(code).as_str())
+}
+
+fn get_by_code(code: &str) -> Option<&'static Country> {
+    COUNTRIES_CODE_MAP
+        .get(trim_upper(code).as_str())
+        .map(|x| *x)
+}
+
+fn check_by_flag(flag: &str) -> bool {
+    COUNTRIES_CODE_MAP.contains_key(flag.trim())
+}
+
+fn get_by_flag(flag: &str) -> Option<&'static Country> {
+    COUNTRIES_FLAG_MAP.get(flag.trim()).map(|x| *x)
 }
 
 #[derive(Clone)]
 pub(crate) struct Country {
     code: &'static str,
+    flag: String,
     names: Vec<&'static str>,
 }
 
 impl Country {
-    pub fn name(&self) -> &'static str {
+    pub(crate) fn new(code: &'static str, names: Vec<&'static str>) -> Self {
+        Country {
+            code,
+            names,
+            flag: internal_code_to_flag(code),
+        }
+    }
+
+    pub(crate) fn name(&self) -> &'static str {
         self.names[0]
     }
 }
@@ -33,78 +69,46 @@ pub fn code(input: &str) -> Option<&'static str> {
 }
 
 pub fn flag(mut input: &str) -> Option<String> {
-    if !CODE_RE.is_match(input) || input == "UK" {
-        if let Some(code) = name_to_code(input) {
-            input = code;
-        }
+    if let Some(code) = name_to_code(input) {
+        input = code;
     }
     code_to_flag(input)
 }
 
 pub fn name(mut input: &str) -> Option<&'static str> {
-    if FLAG_RE.is_match(input) {
-        if let Some(code) = flag_to_code(input) {
-            input = code;
-        }
+    if let Some(code) = flag_to_code(input) {
+        input = code;
     }
     code_to_name(input)
 }
 
 pub fn is_code(code: Option<&str>) -> bool {
-    code.map_or(false, |code| {
-        COUNTRIES_MAP.contains_key(code.trim().to_uppercase().as_str())
-    })
+    code.map_or(false, check_by_code)
 }
 
 pub fn code_to_name(code: &str) -> Option<&'static str> {
-    COUNTRIES_MAP
-        .get(code.trim().to_uppercase().as_str())
-        .map(|country| country.name())
+    get_by_code(code).map(|country| country.name())
 }
 
 pub fn code_to_flag(code: &str) -> Option<String> {
-    if is_code(Some(code)) {
-        let mut flag = String::new();
-        for c in code.chars() {
-            if let Some(c) = std::char::from_u32(c as u32 + FLAG_MAGIC_NUMBER) {
-                flag.push(c);
-            } else {
-                return None;
-            }
-        }
-        Some(flag)
-    } else {
-        None
-    }
+    get_by_code(code).map(|country| country.flag.clone())
 }
 
 pub fn is_country_flag(flag: &str) -> bool {
-    FLAG_RE.is_match(flag)
+    check_by_flag(flag)
 }
 
 pub fn flag_to_code(flag: &str) -> Option<&'static str> {
-    let flag = flag.trim();
-    if !is_country_flag(flag) {
-        return None;
-    }
-    let mut code = String::new();
-    for c in flag.chars() {
-        if let Some(c) = std::char::from_u32(c as u32 - FLAG_MAGIC_NUMBER) {
-            code.push(c);
-        } else {
-            return None;
-        }
-    }
-    COUNTRIES_MAP.get(code.as_str()).map(|country| country.code)
+    get_by_flag(flag).map(|country| country.code)
 }
 
 pub fn name_to_code(name: &str) -> Option<&'static str> {
-    let name = name.trim().to_lowercase();
+    let name = trim_upper(name);
 
     // exact match lookup
     for country in COUNTRIES.iter() {
         for n in &country.names {
-            if n.to_lowercase() == name {
+            if n.to_uppercase() == name {
                 return Some(country.code);
             }
         }
@@ -121,7 +125,7 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
     });
 
     // Return only when exactly one match was found
-	//   prevents cases like "United"
+    //   prevents cases like "United"
     if matches.len() == 1 {
         Some(matches[0])
     } else {
@@ -130,7 +134,7 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
 }
 
 fn fuzzy_compare(input: &str, name: &str) -> bool {
-    let name = name.to_lowercase();
+    let name = name.to_uppercase();
 
     // Cases like:
     //    "Vatican" <-> "Holy See (Vatican City State)"
