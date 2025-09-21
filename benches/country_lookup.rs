@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use country_emoji::{code, flag, name};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn benchmark_exact_matches(c: &mut Criterion) {
     let exact_matches = vec![
@@ -26,15 +26,15 @@ fn benchmark_exact_matches(c: &mut Criterion) {
 
 fn benchmark_fuzzy_matches(c: &mut Criterion) {
     let fuzzy_queries = vec![
-        "USA", // Should match United States
-        "UK", // Should match United Kingdom
-        "Russia", // Should match Russian Federation
-        "Vatican", // Should match Holy See (Vatican City State)
-        "UAE", // Should match United Arab Emirates
-        "Congo", // Should match Democratic Republic of Congo
-        "Korea", // Ambiguous - should return None
-        "Guinea", // Should match Guinea exactly
-        "Virgin Islands", // Ambiguous without qualifier
+        "USA",                 // Should match United States
+        "UK",                  // Should match United Kingdom
+        "Russia",              // Should match Russian Federation
+        "Vatican",             // Should match Holy See (Vatican City State)
+        "UAE",                 // Should match United Arab Emirates
+        "Congo",               // Should match Democratic Republic of Congo
+        "Korea",               // Ambiguous - should return None
+        "Guinea",              // Should match Guinea exactly
+        "Virgin Islands",      // Ambiguous without qualifier
         "Republic of Moldova", // Should match Moldova
     ];
 
@@ -118,14 +118,14 @@ fn benchmark_comma_reversal(c: &mut Criterion) {
 
 fn benchmark_government_patterns(c: &mut Criterion) {
     let government_queries = vec![
-        "Republic of France", // Should match France
-        "Kingdom of Spain", // Should match Spain
-        "Islamic Republic of Iran", // Should match Iran
+        "Republic of France",           // Should match France
+        "Kingdom of Spain",             // Should match Spain
+        "Islamic Republic of Iran",     // Should match Iran
         "Democratic Republic of Congo", // Should match Congo-Kinshasa
-        "United Kingdom", // Exact match
-        "Federal Republic of Germany", // Should match Germany
-        "Republic of Italy", // Should match Italy
-        "Commonwealth of Australia", // Should match Australia
+        "United Kingdom",               // Exact match
+        "Federal Republic of Germany",  // Should match Germany
+        "Republic of Italy",            // Should match Italy
+        "Commonwealth of Australia",    // Should match Australia
     ];
 
     c.bench_function("government_patterns", |b| {
@@ -168,14 +168,14 @@ fn benchmark_flag_operations(c: &mut Criterion) {
 
 fn benchmark_edge_cases(c: &mut Criterion) {
     let edge_cases = vec![
-        "", // Empty string
-        "   ", // Whitespace only
-        "Atlantis", // Non-existent country
-        "X", // Single character
+        "",                           // Empty string
+        "   ",                        // Whitespace only
+        "Atlantis",                   // Non-existent country
+        "X",                          // Single character
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ", // Very long invalid
-        "123", // Numbers
-        "🇺🇸", // Flag emoji
-        "US", // Country code
+        "123",                        // Numbers
+        "🇺🇸",                         // Flag emoji
+        "US",                         // Country code
     ];
 
     c.bench_function("edge_cases", |b| {

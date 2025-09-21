@@ -5,17 +5,11 @@ use regex::Regex;
 use unidecode::unidecode;
 
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
-static SAINT_ST_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)\b(st\.?\s+)").unwrap()
-});
+static SAINT_ST_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\b(st\.?\s+)").unwrap());
 
-static AMPERSAND_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\s*&\s*").unwrap()
-});
+static AMPERSAND_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s*&\s*").unwrap());
 
-static MULTIPLE_SPACES_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\s{2,}").unwrap()
-});
+static MULTIPLE_SPACES_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
 
 static GOVERNMENT_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
     vec![
@@ -94,9 +88,15 @@ fn normalize_text(text: &str) -> String {
     }
 
     let mut normalized = unidecode(trimmed).to_lowercase();
-    normalized = AMPERSAND_REGEX.replace_all(&normalized, " and ").into_owned();
-    normalized = SAINT_ST_REGEX.replace_all(&normalized, "saint ").into_owned();
-    normalized = MULTIPLE_SPACES_REGEX.replace_all(&normalized, " ").into_owned();
+    normalized = AMPERSAND_REGEX
+        .replace_all(&normalized, " and ")
+        .into_owned();
+    normalized = SAINT_ST_REGEX
+        .replace_all(&normalized, "saint ")
+        .into_owned();
+    normalized = MULTIPLE_SPACES_REGEX
+        .replace_all(&normalized, " ")
+        .into_owned();
 
     normalized.trim().to_string()
 }
@@ -134,9 +134,7 @@ fn strip_government_patterns(text: &str) -> Vec<String> {
 fn strip_government_patterns_internal(text: &str) -> Vec<String> {
     let mut variants = Vec::new();
 
-    let ambiguous_terms = [
-        "korea", "guinea", "congo", "virgin", "samoa", "sudan"
-    ];
+    let ambiguous_terms = ["korea", "guinea", "congo", "virgin", "samoa", "sudan"];
     for (regex, replacement) in GOVERNMENT_PATTERNS.iter() {
         let stripped = regex.replace_all(text, *replacement).trim().to_string();
         let stripped_lower = stripped.to_lowercase();
@@ -146,7 +144,8 @@ fn strip_government_patterns_internal(text: &str) -> Vec<String> {
             && !variants.contains(&stripped)
             && stripped.len() >= 4
             && !is_too_generic(&stripped_lower)
-            && !ambiguous_terms.contains(&stripped_lower.as_str()) {
+            && !ambiguous_terms.contains(&stripped_lower.as_str())
+        {
             variants.push(stripped);
         }
     }
@@ -156,10 +155,32 @@ fn strip_government_patterns_internal(text: &str) -> Vec<String> {
 
 fn is_too_generic(word: &str) -> bool {
     let generic_words = [
-        "united", "republic", "democratic", "kingdom", "state", "states",
-        "island", "islands", "federation", "people", "socialist", "islamic",
-        "principality", "commonwealth", "the", "of", "and", "&",
-        "new", "north", "south", "east", "west", "central", "saint", "st"
+        "united",
+        "republic",
+        "democratic",
+        "kingdom",
+        "state",
+        "states",
+        "island",
+        "islands",
+        "federation",
+        "people",
+        "socialist",
+        "islamic",
+        "principality",
+        "commonwealth",
+        "the",
+        "of",
+        "and",
+        "&",
+        "new",
+        "north",
+        "south",
+        "east",
+        "west",
+        "central",
+        "saint",
+        "st",
     ];
     generic_words.contains(&word)
 }
@@ -202,16 +223,19 @@ fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
         if input_words.len() == 1 && country_words.len() > 1 {
             return jaccard_score * 0.2;
         }
-        let primary_words_input: Vec<&str> = input_words.iter()
+        let primary_words_input: Vec<&str> = input_words
+            .iter()
             .filter(|&&word| !is_too_generic(word))
             .copied()
             .collect();
-        let primary_words_country: Vec<&str> = country_words.iter()
+        let primary_words_country: Vec<&str> = country_words
+            .iter()
             .filter(|&&word| !is_too_generic(word))
             .copied()
             .collect();
 
-        let shared_primary = primary_words_input.iter()
+        let shared_primary = primary_words_input
+            .iter()
             .any(|&word| primary_words_country.contains(&word));
 
         if !shared_primary && intersection > 0 {
@@ -396,6 +420,3 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
 
     None
 }
-
-
-

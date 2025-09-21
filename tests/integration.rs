@@ -1,4 +1,7 @@
-use country_emoji::{code, flag, name, code_to_flag, code_to_name, flag_to_code, name_to_code, is_code, is_country_flag};
+use country_emoji::{
+    code, code_to_flag, code_to_name, flag, flag_to_code, is_code, is_country_flag, name,
+    name_to_code,
+};
 
 #[test]
 fn test_flag_operations() {
