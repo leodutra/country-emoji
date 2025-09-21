@@ -242,7 +242,7 @@ fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
             return jaccard_score * 0.1;
         }
 
-        return jaccard_score;
+        jaccard_score
     } else {
         0.0
     }
@@ -266,8 +266,7 @@ fn check_by_code(code: &str) -> bool {
 
 fn get_by_code(code: &str) -> Option<&Country> {
     COUNTRIES_CODE_MAP
-        .get(trim_upper(code).as_str())
-        .map(|x| *x)
+        .get(trim_upper(code).as_str()).copied()
 }
 
 fn check_by_flag(flag: &str) -> bool {
@@ -275,7 +274,7 @@ fn check_by_flag(flag: &str) -> bool {
 }
 
 fn get_by_flag(flag: &str) -> Option<&Country> {
-    COUNTRIES_FLAG_MAP.get(flag.trim()).map(|x| *x)
+    COUNTRIES_FLAG_MAP.get(flag.trim()).copied()
 }
 
 /// Convert a flag emoji or country name to its ISO code
@@ -330,11 +329,11 @@ pub fn name(mut input: &str) -> Option<&'static str> {
 }
 
 pub fn is_code(code: Option<&str>) -> bool {
-    code.map_or(false, check_by_code)
+    code.is_some_and(check_by_code)
 }
 
 pub fn code_to_name(code: &str) -> Option<&'static str> {
-    get_by_code(code).map(|country| country_name(country))
+    get_by_code(code).map(country_name)
 }
 
 pub fn code_to_flag(code: &str) -> Option<String> {
@@ -346,7 +345,7 @@ pub fn is_country_flag(flag: &str) -> bool {
 }
 
 pub fn flag_to_code(flag: &str) -> Option<&'static str> {
-    get_by_flag(flag).map(|country| country_code(country))
+    get_by_flag(flag).map(country_code)
 }
 
 pub fn name_to_code(name: &str) -> Option<&'static str> {
