@@ -22,16 +22,16 @@ A lightweight, fast Rust library that converts between country names, ISO 3166-1
 use country_emoji::{flag, code, name};
 
 // Generate flag emoji from country code
-assert_eq!(flag("US"), Some("🇺🇸".to_string()));  // → 🇺🇸
+assert_eq!(flag("US"), Some("🇺🇸".to_string()));
 
-// Extract country code from flag emoji  
-assert_eq!(code("🇨🇦"), Some("CA"));               // → "CA"
+// Extract country code from flag emoji
+assert_eq!(code("🇨🇦"), Some("CA"));
 
 // Get country name from code
-assert_eq!(name("DE"), Some("Germany"));           // → "Germany"
+assert_eq!(name("DE"), Some("Germany"));
 
-// Convert country name to code  
-assert_eq!(code("Japan"), Some("JP"));             // → "JP"
+// Convert country name to code
+assert_eq!(code("Japan"), Some("JP"));
 ```### Advanced Fuzzy Matching
 
 The library handles many name variations and formats intelligently:
@@ -41,7 +41,7 @@ use country_emoji::code;
 
 // Alternative names and abbreviations
 assert_eq!(code("UK"), Some("GB"));           // → 🇬🇧
-assert_eq!(code("UAE"), Some("AE"));          // → 🇦🇪  
+assert_eq!(code("UAE"), Some("AE"));          // → 🇦🇪
 assert_eq!(code("Russia"), Some("RU"));       // → 🇷🇺
 
 // Government titles and formal names
@@ -50,24 +50,24 @@ assert_eq!(code("Democratic People's Republic of Korea"), Some("KP"));      // �
 assert_eq!(code("United States of America"), Some("US"));                   // → 🇺🇸
 
 // Comma-reversed formats
-assert_eq!(code("Virgin Islands, British"), Some("VG"));    // → 🇻🇬
-assert_eq!(code("Korea, Republic of"), Some("KR"));         // → 🇰🇷
+assert_eq!(code("Virgin Islands, British"), Some("VG"));
+assert_eq!(code("Korea, Republic of"), Some("KR"));
 
-// Saint/St. normalization  
-assert_eq!(code("Saint Lucia"), Some("LC"));   // → 🇱🇨
-assert_eq!(code("St. Lucia"), Some("LC"));     
-assert_eq!(code("St Lucia"), Some("LC"));      
+// Saint/St. normalization
+assert_eq!(code("Saint Lucia"), Some("LC"));
+assert_eq!(code("St. Lucia"), Some("LC"));
+assert_eq!(code("St Lucia"), Some("LC"));
 
 // And/ampersand equivalence
-assert_eq!(code("Bosnia and Herzegovina"), Some("BA"));     // → 🇧🇦
-assert_eq!(code("Bosnia & Herzegovina"), Some("BA"));       
+assert_eq!(code("Bosnia and Herzegovina"), Some("BA"));
+assert_eq!(code("Bosnia & Herzegovina"), Some("BA"));
 
 // Diacritic handling
-assert_eq!(code("Cote d'Ivoire"), Some("CI"));    // → 🇨🇮
-assert_eq!(code("Côte d'Ivoire"), Some("CI"));    
+assert_eq!(code("Cote d'Ivoire"), Some("CI"));
+assert_eq!(code("Côte d'Ivoire"), Some("CI"));
 
 // Partial matching for unique names
-assert_eq!(code("Vatican"), Some("VA"));          // → 🇻🇦
+assert_eq!(code("Vatican"), Some("VA"));
 ```
 
 ### Direct API Functions
@@ -77,13 +77,13 @@ For explicit conversions, use the direct API:
 ```rust
 use country_emoji::{code_to_flag, flag_to_code, name_to_code, code_to_name, is_code, is_country_flag};
 
-assert_eq!(code_to_flag("FR"), Some("🇫🇷".to_string()));   // → 🇫🇷
-assert_eq!(flag_to_code("🇮🇹"), Some("IT"));                // → "IT"
-assert_eq!(name_to_code("Spain"), Some("ES"));              // → "ES"
-assert_eq!(code_to_name("BR"), Some("Brazil"));             // → "Brazil"
+assert_eq!(code_to_flag("FR"), Some("🇫🇷".to_string()));
+assert_eq!(flag_to_code("🇮🇹"), Some("IT"));
+assert_eq!(name_to_code("Spain"), Some("ES"));
+assert_eq!(code_to_name("BR"), Some("Brazil"));
 
-assert!(is_code(Some("CA")));          // ✅ Valid
-assert!(is_country_flag("🇯🇵"));       // ✅ Valid
+assert!(is_code(Some("CA")));   // ✅ Valid
+assert!(is_country_flag("🇯🇵"));  // ✅ Valid
 ```
 
 ### Error Handling
@@ -94,12 +94,12 @@ The library returns `None` for invalid or ambiguous inputs:
 use country_emoji::code;
 
 // Invalid inputs
-assert_eq!(code("ZZ"), None);           // ❌ Invalid
-assert_eq!(code("Atlantis"), None);     // ❌ Non-existent
+assert_eq!(code("ZZ"), None);       // ❌ Invalid
+assert_eq!(code("Atlantis"), None); // ❌ Non-existent
 
 // Ambiguous inputs (prevents false matches)
-assert_eq!(code("Korea"), None);        // ❓ Ambiguous (🇰🇵 or 🇰🇷?)
-assert_eq!(code("United"), None);       // ❓ Too vague
+assert_eq!(code("Korea"), None);   // ❓ Ambiguous (🇰🇵 or 🇰🇷?)
+assert_eq!(code("United"), None);  // ❓ Too vague
 ```
 
 ## Performance

@@ -20,7 +20,7 @@
 //! // Convert country code to flag emoji
 //! assert_eq!(flag("US"), Some("🇺🇸".to_string()));
 //!
-//! // Convert flag emoji to country code  
+//! // Convert flag emoji to country code
 //! assert_eq!(code("🇨🇦"), Some("CA"));
 //!
 //! // Convert country code to name
@@ -42,7 +42,7 @@
 //! assert_eq!(code("Republic of Korea"), Some("KR"));
 //! assert_eq!(code("United States of America"), Some("US"));
 //!
-//! // Saint/St. normalization  
+//! // Saint/St. normalization
 //! assert_eq!(code("Saint Lucia"), Some("LC"));
 //! assert_eq!(code("St. Lucia"), Some("LC"));
 //!
@@ -369,10 +369,10 @@ fn get_by_flag(flag: &str) -> Option<&Country> {
 /// assert_eq!(code("🇨🇦"), Some("CA"));
 /// assert_eq!(code("🇺🇸"), Some("US"));
 ///
-/// // Country names to codes  
+/// // Country names to codes
 /// assert_eq!(code("Canada"), Some("CA"));
 /// assert_eq!(code("United States"), Some("US"));
-/// 
+///
 /// // Alternative names and abbreviations
 /// assert_eq!(code("UK"), Some("GB"));
 /// assert_eq!(code("UAE"), Some("AE"));
@@ -465,7 +465,7 @@ pub fn name(mut input: &str) -> Option<&'static str> {
 
 /// Validate if an optional string is a valid ISO 3166-1 alpha-2 country code.
 ///
-/// # Arguments  
+/// # Arguments
 /// * `code` - An optional string slice that may contain a country code
 ///
 /// # Returns
@@ -478,7 +478,7 @@ pub fn name(mut input: &str) -> Option<&'static str> {
 /// use country_emoji::is_code;
 ///
 /// assert!(is_code(Some("US")));   // Valid country code
-/// assert!(is_code(Some("CA")));   // Valid country code  
+/// assert!(is_code(Some("CA")));   // Valid country code
 /// assert!(!is_code(Some("ZZ")));  // Invalid country code
 /// assert!(!is_code(None));        // None input
 /// ```
@@ -593,12 +593,12 @@ pub fn flag_to_code(flag: &str) -> Option<&'static str> {
 /// Convert a country name to its ISO 3166-1 alpha-2 code using fuzzy matching.
 ///
 /// This function performs intelligent fuzzy matching to handle various name formats,
-/// including alternative names, government titles, diacritic variations, and 
+/// including alternative names, government titles, diacritic variations, and
 /// different naming conventions. It's the most flexible name-to-code conversion function.
 ///
 /// # Supported Name Variations
 /// - Official names: "United States", "United Kingdom"
-/// - Alternative names: "USA", "UK", "UAE" 
+/// - Alternative names: "USA", "UK", "UAE"
 /// - Government titles: "Republic of Korea", "United States of America"
 /// - Comma-reversed: "Virgin Islands, British", "Korea, Republic of"
 /// - Saint/St. variations: "Saint Lucia", "St. Lucia", "St Lucia"
@@ -626,7 +626,7 @@ pub fn flag_to_code(flag: &str) -> Option<&'static str> {
 /// assert_eq!(name_to_code("UAE"), Some("AE"));
 /// assert_eq!(name_to_code("USA"), Some("US"));
 ///
-/// // Government titles  
+/// // Government titles
 /// assert_eq!(name_to_code("Republic of Korea"), Some("KR"));
 /// assert_eq!(name_to_code("United States of America"), Some("US"));
 ///
