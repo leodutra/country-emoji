@@ -11,7 +11,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| vec![
         ("AI", &["Anguilla", "Anguillian"]),
         ("AL", &["Albania", "Albanian"]),
         ("AM", &["Armenia", "Armenian"]),
-        ("AN", &["Netherlands Antilles"]),
+        ("AN", &["Netherlands Antilles"]), // Dissolved 2010, kept for legacy compatibility
         ("AO", &["Angola", "Angolan"]),
         ("AQ", &["Antarctica", "Antarctican"]),
         ("AR", &["Argentina", "Argentine"]),
@@ -242,7 +242,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| vec![
         ("VA", &["Vatican", "Holy See (Vatican City State)", "Vatican City"]),
         ("VC", &["Saint Vincent and the Grenadines", "Saint Vincentian"]),
         ("VE", &["Venezuela", "Bolivarian Republic of Venezuela", "Venezuelan"]),
-        ("VG", &["Virgin Islands, British"]),
+        ("VG", &["British Virgin Islands", "Virgin Islands, British"]),
         ("VI", &["Virgin Islands, U.S."]),
         ("VN", &["Vietnam", "Viet Nam", "Vietnamese"]),
         ("VU", &["Vanuatu", "Ni-Vanuatu"]),
