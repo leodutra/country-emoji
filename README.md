@@ -7,12 +7,12 @@ A lightweight, fast Rust library that converts between country names, ISO 3166-1
 
 ## Features
 
-- **Fast lookups** - Optimized for performance with pre-compiled regex patterns
-- **Fuzzy matching** - Handles alternative names, government titles, and formatting variations
-- **Comprehensive data** - All ISO 3166-1 countries including recent additions
-- **Normalization** - Handles diacritics, case-insensitivity, whitespace, and abbreviations
-- **Bidirectional conversion** - Convert between any combination of codes, names, and flag emojis
-- **Zero-copy** - Returns string slices where possible for optimal memory usage
+- **⚡ Fast lookups** - Optimized for performance with pre-compiled regex patterns
+- **🧠 Fuzzy matching** - Handles alternative names, government titles, and formatting variations
+- **🌍 Comprehensive data** - All ISO 3166-1 countries including recent additions
+- **✨ Normalization** - Handles diacritics, case-insensitivity, whitespace, and abbreviations
+- **🔄 Bidirectional conversion** - Convert between any combination of codes, names, and flag emojis
+- **🚀 Zero-copy** - Returns string slices where possible for optimal memory usage
 
 ## Usage
 
@@ -22,16 +22,16 @@ A lightweight, fast Rust library that converts between country names, ISO 3166-1
 use country_emoji::{flag, code, name};
 
 // Generate flag emoji from country code
-assert_eq!(flag("US"), Some("🇺🇸".to_string()));
+assert_eq!(flag("US"), Some("🇺🇸".to_string()));  // "US" → 🇺🇸
 
 // Extract country code from flag emoji
-assert_eq!(code("🇨🇦"), Some("CA"));
+assert_eq!(code("🇨🇦"), Some("CA"));               // 🇨🇦 → "CA"
 
 // Get country name from code
-assert_eq!(name("DE"), Some("Germany"));
+assert_eq!(name("DE"), Some("Germany"));           // "DE" 🇩🇪 → "Germany"
 
 // Convert country name to code
-assert_eq!(code("Japan"), Some("JP"));
+assert_eq!(code("Japan"), Some("JP"));             // "Japan" → "JP" 🇯🇵
 ```
 
 ### Advanced Fuzzy Matching
@@ -42,34 +42,34 @@ The library handles many name variations and formats intelligently:
 use country_emoji::code;
 
 // Alternative names and abbreviations
-assert_eq!(code("UK"), Some("GB"));
-assert_eq!(code("UAE"), Some("AE"));
-assert_eq!(code("Russia"), Some("RU"));
+assert_eq!(code("UK"), Some("GB"));           // 🇬🇧 United Kingdom
+assert_eq!(code("UAE"), Some("AE"));          // 🇦🇪 United Arab Emirates
+assert_eq!(code("Russia"), Some("RU"));       // 🇷🇺 Russian Federation
 
 // Government titles and formal names
-assert_eq!(code("Republic of Moldova"), Some("MD"));
-assert_eq!(code("Democratic People's Republic of Korea"), Some("KP"));
-assert_eq!(code("United States of America"), Some("US"));
+assert_eq!(code("Republic of Moldova"), Some("MD"));                        // 🇲🇩 Moldova
+assert_eq!(code("Democratic People's Republic of Korea"), Some("KP"));      // 🇰🇵 North Korea
+assert_eq!(code("United States of America"), Some("US"));                   // 🇺🇸 United States
 
 // Comma-reversed formats
-assert_eq!(code("Virgin Islands, British"), Some("VG"));
-assert_eq!(code("Korea, Republic of"), Some("KR"));
+assert_eq!(code("Virgin Islands, British"), Some("VG"));    // 🇻🇬 British Virgin Islands
+assert_eq!(code("Korea, Republic of"), Some("KR"));         // 🇰🇷 South Korea
 
 // Saint/St. normalization
-assert_eq!(code("Saint Lucia"), Some("LC"));
-assert_eq!(code("St. Lucia"), Some("LC"));
-assert_eq!(code("St Lucia"), Some("LC"));
+assert_eq!(code("Saint Lucia"), Some("LC"));   // 🇱🇨 Saint Lucia
+assert_eq!(code("St. Lucia"), Some("LC"));     // 🇱🇨 Saint Lucia
+assert_eq!(code("St Lucia"), Some("LC"));      // 🇱🇨 Saint Lucia
 
 // And/ampersand equivalence
-assert_eq!(code("Bosnia and Herzegovina"), Some("BA"));
-assert_eq!(code("Bosnia & Herzegovina"), Some("BA"));
+assert_eq!(code("Bosnia and Herzegovina"), Some("BA"));     // 🇧🇦 Bosnia and Herzegovina
+assert_eq!(code("Bosnia & Herzegovina"), Some("BA"));       // 🇧🇦 Bosnia and Herzegovina
 
 // Diacritic handling
-assert_eq!(code("Cote d'Ivoire"), Some("CI"));
-assert_eq!(code("Côte d'Ivoire"), Some("CI"));
+assert_eq!(code("Cote d'Ivoire"), Some("CI"));    // 🇨🇮 Côte d'Ivoire
+assert_eq!(code("Côte d'Ivoire"), Some("CI"));    // 🇨🇮 Côte d'Ivoire
 
 // Partial matching for unique names
-assert_eq!(code("Vatican"), Some("VA")); // matches "Holy See (Vatican City State)"
+assert_eq!(code("Vatican"), Some("VA"));          // 🇻🇦 Holy See (Vatican City State)
 ```
 
 ### Direct API Functions
@@ -79,13 +79,13 @@ For explicit conversions, use the direct API:
 ```rust
 use country_emoji::{code_to_flag, flag_to_code, name_to_code, code_to_name, is_code, is_country_flag};
 
-assert_eq!(code_to_flag("FR"), Some("🇫🇷".to_string()));
-assert_eq!(flag_to_code("🇮🇹"), Some("IT"));
-assert_eq!(name_to_code("Spain"), Some("ES"));
-assert_eq!(code_to_name("BR"), Some("Brazil"));
+assert_eq!(code_to_flag("FR"), Some("🇫🇷".to_string()));   // France 🇫🇷
+assert_eq!(flag_to_code("🇮🇹"), Some("IT"));                // Italy 🇮🇹 → "IT"
+assert_eq!(name_to_code("Spain"), Some("ES"));              // Spain 🇪🇸 → "ES"
+assert_eq!(code_to_name("BR"), Some("Brazil"));             // "BR" 🇧🇷 → "Brazil"
 
-assert!(is_code(Some("CA")));
-assert!(is_country_flag("🇯🇵"));
+assert!(is_code(Some("CA")));          // ✅ "CA" is valid (Canada 🇨🇦)
+assert!(is_country_flag("🇯🇵"));       // ✅ Japan flag is valid
 ```
 
 ### Error Handling
@@ -96,12 +96,12 @@ The library returns `None` for invalid or ambiguous inputs:
 use country_emoji::code;
 
 // Invalid inputs
-assert_eq!(code("ZZ"), None);           // Invalid country code
-assert_eq!(code("Atlantis"), None);     // Non-existent country
+assert_eq!(code("ZZ"), None);           // ❌ Invalid country code
+assert_eq!(code("Atlantis"), None);     // ❌ Non-existent country
 
 // Ambiguous inputs (prevents false matches)
-assert_eq!(code("Korea"), None);        // Could be North or South Korea
-assert_eq!(code("United"), None);       // Too ambiguous
+assert_eq!(code("Korea"), None);        // ❓ Could be North 🇰🇵 or South 🇰🇷 Korea
+assert_eq!(code("United"), None);       // ❓ Too ambiguous (US 🇺🇸, UK 🇬🇧, UAE 🇦🇪?)
 ```
 
 ## Performance
