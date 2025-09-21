@@ -9,14 +9,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("AD", &["Andorra", "Andorran"]),
         ("AE", &["United Arab Emirates", "UAE", "Emirati"]),
         ("AF", &["Afghanistan", "Afghan"]),
-        (
-            "AG",
-            &[
-                "Antigua & Barbuda",
-                "Antigua and Barbuda",
-                "Antiguan, Barbudan",
-            ],
-        ),
+        ("AG", &["Antigua & Barbuda", "Antiguan", "Barbudan"]),
         ("AI", &["Anguilla", "Anguillian"]),
         ("AL", &["Albania", "Albanian"]),
         ("AM", &["Armenia", "Armenian"]),
@@ -28,19 +21,9 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("AT", &["Austria", "Austrian"]),
         ("AU", &["Australia", "Australian"]),
         ("AW", &["Aruba", "Aruban"]),
-        (
-            "AX",
-            &["Åland Islands", "Aland Islands", "Ålandish", "Alandish"],
-        ),
+        ("AX", &["Åland Islands", "Ålandish"]),
         ("AZ", &["Azerbaijan", "Azerbaijani"]),
-        (
-            "BA",
-            &[
-                "Bosnia & Herzegovina",
-                "Bosnia and Herzegovina",
-                "Bosnian, Herzegovinian",
-            ],
-        ),
+        ("BA", &["Bosnia & Herzegovina", "Bosnian, Herzegovinian"]),
         ("BB", &["Barbados", "Barbadian"]),
         ("BD", &["Bangladesh", "Bangladeshi"]),
         ("BE", &["Belgium", "Belgian"]),
@@ -208,7 +191,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("IN", &["India", "Indian"]),
         ("IO", &["British Indian Ocean Territory", "BIOT Islander"]),
         ("IQ", &["Iraq", "Iraqi"]),
-        ("IR", &["Iran", "Islamic Republic of Iran", "Iranian"]),
+        ("IR", &["Iran", "Iranian"]),
         ("IS", &["Iceland", "Icelander"]),
         ("IT", &["Italy", "Italian"]),
         ("JE", &["Jersey", "Jersey person"]),
@@ -257,7 +240,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("LY", &["Libya", "Libyan"]),
         ("MA", &["Morocco", "Moroccan"]),
         ("MC", &["Monaco", "Monegasque"]),
-        ("MD", &["Moldova", "Republic of Moldova", "Moldovan"]),
+        ("MD", &["Moldova", "Moldovan"]),
         ("ME", &["Montenegro", "Montenegrin"]),
         ("MF", &["Saint Martin", "St. Martin", "Saint-Martinois"]),
         ("MG", &["Madagascar", "Malagasy"]),
@@ -266,7 +249,6 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
             "MK",
             &[
                 "North Macedonia",
-                "Republic of North Macedonia",
                 "Macedonia, The Former Yugoslav Republic of",
                 "Macedonian",
             ],
@@ -350,10 +332,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("SO", &["Somalia", "Somali"]),
         ("SR", &["Suriname", "Surinamer"]),
         ("SS", &["South Sudan", "South Sudanese"]),
-        (
-            "ST",
-            &["São Tomé & Príncipe", "Sao Tome & Principe", "Sao Tomean"],
-        ),
+        ("ST", &["São Tomé & Príncipe", "Sao Tomean"]),
         ("SV", &["El Salvador", "Salvadoran"]),
         ("SX", &["Sint Maarten", "Sint Maarten (Dutch part)"]),
         ("SY", &["Syria", "Syrian Arab Republic", "Syrian"]),
@@ -384,16 +363,10 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("TN", &["Tunisia", "Tunisian"]),
         ("TO", &["Tonga", "Tongan"]),
         ("TR", &["Türkiye", "Turkey", "Turkish"]),
-        (
-            "TT",
-            &["Trinidad & Tobago", "Trinidad and Tobago", "Trinidadian"],
-        ),
+        ("TT", &["Trinidad & Tobago", "Trinidadian"]),
         ("TV", &["Tuvalu", "Tuvaluan"]),
         ("TW", &["Taiwan", "Republic of China", "Taiwanese"]),
-        (
-            "TZ",
-            &["Tanzania", "United Republic of Tanzania", "Tanzanian"],
-        ),
+        ("TZ", &["Tanzania", "Tanzanian"]),
         ("UA", &["Ukraine", "Ukrainian"]),
         ("UG", &["Uganda", "Ugandan"]),
         (
@@ -420,15 +393,8 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
                 "Saint Vincentian",
             ],
         ),
-        (
-            "VE",
-            &[
-                "Venezuela",
-                "Bolivarian Republic of Venezuela",
-                "Venezuelan",
-            ],
-        ),
-        ("VG", &["British Virgin Islands", "Virgin Islands, British"]),
+        ("VE", &["Venezuela", "Venezuelan"]),
+        ("VG", &["Virgin Islands, British"]),
         (
             "VI",
             &[
