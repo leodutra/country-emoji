@@ -3,11 +3,45 @@
 
 mod countries;
 use countries::{COUNTRIES, COUNTRIES_CODE_MAP, COUNTRIES_FLAG_MAP};
+use once_cell::sync::Lazy;
+use unidecode::unidecode;
 
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
 
 // Optimized: (code, names_slice)
 pub(crate) type Country = (&'static str, &'static [&'static str]);
+
+// Cached normalized country data for faster fuzzy matching
+type NormalizedCountryData = (String, Vec<String>, &'static str); // (primary_normalized, all_variants, country_code)
+
+static NORMALIZED_COUNTRIES: Lazy<Vec<NormalizedCountryData>> = Lazy::new(|| {
+    COUNTRIES
+        .iter()
+        .map(|country| {
+            let code = country_code(country);
+            let names = country_names(country);
+            let primary_normalized = normalize_text(names[0]);
+
+            let mut all_variants = Vec::new();
+            for name in names {
+                let normalized_name = normalize_text(name);
+                if !all_variants.contains(&normalized_name) {
+                    all_variants.push(normalized_name.clone());
+                }
+
+                // Add government pattern variants
+                let variants = strip_government_patterns(name);
+                for variant in variants {
+                    if !all_variants.contains(&variant) {
+                        all_variants.push(variant);
+                    }
+                }
+            }
+
+            (primary_normalized, all_variants, code)
+        })
+        .collect()
+});
 
 pub(crate) fn country_code(country: &Country) -> &'static str {
     country.0
@@ -25,7 +59,171 @@ fn trim_upper(text: &str) -> String {
     text.trim().to_uppercase()
 }
 
-pub(crate) fn code_to_flag_emoji(code: &str) -> String {
+fn normalize_text(text: &str) -> String {
+    let mut normalized = unidecode(text.trim()).to_lowercase();
+
+    // Normalize "and" vs "&" - replace both with a standard form
+    normalized = normalized.replace(" & ", " and ");
+    normalized = normalized.replace("&", " and ");
+
+    // Clean up multiple spaces that might result from replacements
+    while normalized.contains("  ") {
+        normalized = normalized.replace("  ", " ");
+    }
+
+    normalized.trim().to_string()
+}
+
+fn strip_government_patterns(text: &str) -> Vec<String> {
+    let normalized = normalize_text(text);
+    let mut variants = vec![normalized.clone()];
+
+    // Handle comma-reversed names (e.g., "Moldova, Republic of" -> "Republic of Moldova")
+    if normalized.contains(',') {
+        let mut name_parts: Vec<&str> = normalized.split(", ").collect();
+        name_parts.reverse();
+        let reversed_name = name_parts.join(" ");
+        if !variants.contains(&reversed_name) {
+            variants.push(reversed_name.clone());
+
+            // Also strip government patterns from the reversed name
+            let reversed_variants = strip_government_patterns_internal(&reversed_name);
+            for variant in reversed_variants {
+                if !variants.contains(&variant) {
+                    variants.push(variant);
+                }
+            }
+        }
+    }
+
+    // Apply government pattern stripping
+    let pattern_variants = strip_government_patterns_internal(&normalized);
+    for variant in pattern_variants {
+        if !variants.contains(&variant) {
+            variants.push(variant);
+        }
+    }
+
+    variants
+}
+
+fn strip_government_patterns_internal(text: &str) -> Vec<String> {
+    let mut variants = Vec::new();
+
+    // Common government patterns to strip/normalize
+    let patterns = [
+        (r"^the\s+", ""),
+        (r"^republic\s+of\s+", ""),
+        (r"^democratic\s+republic\s+of\s+", ""),
+        (r"^people's\s+republic\s+of\s+", ""),
+        (r"^kingdom\s+of\s+", ""),
+        (r"^principality\s+of\s+", ""),
+        (r"^federation\s+of\s+", ""),
+        (r"^state\s+of\s+", ""),
+        (r"^commonwealth\s+of\s+", ""),
+        (r"^united\s+states\s+of\s+", ""),
+        (r"^islamic\s+republic\s+of\s+", ""),
+        (r"^socialist\s+republic\s+of\s+", ""),
+        (r"\s+republic$", ""),
+        (r"\s+federation$", ""),
+        (r"\s+kingdom$", ""),
+        (r"\s+islands?$", ""),
+        (r"\s+island$", ""),
+    ];
+
+    // Known ambiguous terms that should not be created as variants
+    let ambiguous_terms = [
+        "korea", "guinea", "congo", "virgin", "samoa", "sudan"
+    ];
+
+    for (pattern, replacement) in patterns.iter() {
+        if let Ok(re) = regex::Regex::new(pattern) {
+            let stripped = re.replace_all(text, *replacement).trim().to_string();
+            let stripped_lower = stripped.to_lowercase();
+
+            // Don't add variants that are too short, generic, or ambiguous
+            if !stripped.is_empty()
+                && stripped != text
+                && !variants.contains(&stripped)
+                && stripped.len() >= 4  // Must be at least 4 characters
+                && !is_too_generic(&stripped_lower)
+                && !ambiguous_terms.contains(&stripped_lower.as_str()) {
+                variants.push(stripped);
+            }
+        }
+    }
+
+    variants
+}
+
+fn is_too_generic(word: &str) -> bool {
+    // List of words that are too generic and would cause false matches
+    let generic_words = [
+        "united", "republic", "democratic", "kingdom", "state", "states",
+        "island", "islands", "federation", "people", "socialist", "islamic",
+        "principality", "commonwealth", "the", "of", "and", "&",
+        "new", "north", "south", "east", "west", "central", "saint", "st"
+    ];
+    generic_words.contains(&word)
+}fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
+    // Exact match
+    if input == country_name {
+        return 1.0;
+    }
+
+    // One contains the other - but be careful about very short partial matches
+    if country_name.contains(input) {
+        let containment_score = input.len() as f32 / country_name.len() as f32;
+        // Penalize very short inputs that are just part of longer names
+        if input.len() <= 6 && containment_score < 0.6 {
+            return containment_score * 0.3; // Heavy penalty for ambiguous short matches
+        }
+        return containment_score;
+    }
+
+    if input.contains(country_name) {
+        return country_name.len() as f32 / input.len() as f32;
+    }
+
+    // Jaccard similarity based on words - but be careful with single word inputs
+    let input_words: std::collections::HashSet<&str> = input.split_whitespace().collect();
+    let country_words: std::collections::HashSet<&str> = country_name.split_whitespace().collect();
+
+    let intersection = input_words.intersection(&country_words).count();
+    let union = input_words.union(&country_words).count();
+
+    if union > 0 {
+        let jaccard_score = intersection as f32 / union as f32;
+
+        // Heavily penalize cases where the input is a single common word
+        if input_words.len() == 1 && country_words.len() > 1 {
+            return jaccard_score * 0.2; // Heavy penalty for single-word matches against multi-word countries
+        }
+
+        // Special case: check for word order matches (like "Republic of Moldova" vs "Korea, Republic of")
+        // If they share common words but the primary nouns are different, reduce score
+        let primary_words_input: Vec<&str> = input_words.iter()
+            .filter(|&&word| !is_too_generic(word))
+            .cloned()
+            .collect();
+        let primary_words_country: Vec<&str> = country_words.iter()
+            .filter(|&&word| !is_too_generic(word))
+            .cloned()
+            .collect();
+
+        // If there are no shared primary words but shared generic words, heavily penalize
+        let shared_primary = primary_words_input.iter()
+            .any(|&word| primary_words_country.contains(&word));
+
+        if !shared_primary && intersection > 0 {
+            return jaccard_score * 0.1; // Very low score for only generic word matches
+        }
+
+        return jaccard_score;
+    } else {
+        0.0
+    }
+}pub(crate) fn code_to_flag_emoji(code: &str) -> String {
     let mut flag = String::new();
     for c in trim_upper(code).chars() {
         if let Some(c) = std::char::from_u32(c as u32 + FLAG_MAGIC_NUMBER) {
@@ -127,60 +325,75 @@ pub fn flag_to_code(flag: &str) -> Option<&'static str> {
 }
 
 pub fn name_to_code(name: &str) -> Option<&'static str> {
-    let name = trim_upper(name);
+    let normalized_input = normalize_text(name);
 
-    // exact match lookup
-    for country in COUNTRIES.iter() {
-        for n in country_names(country) {
-            if n.to_uppercase() == name {
-                return Some(country_code(country));
+    // Fast path: exact match using cached normalized data
+    for (primary_normalized, all_variants, code) in NORMALIZED_COUNTRIES.iter() {
+        // Check primary normalized name
+        if *primary_normalized == normalized_input {
+            return Some(code);
+        }
+
+        // Check all variants (includes government pattern variants)
+        for variant in all_variants {
+            if *variant == normalized_input {
+                return Some(code);
             }
         }
     }
 
-    // inexact match lookup
-    let matches = COUNTRIES.iter().fold(vec![], |mut matches, country| {
-        for &n in country_names(country) {
-            if fuzzy_compare(&name, n) {
-                matches.push(country_code(country))
+    // Check if input consists only of generic words - if so, reject fuzzy matching
+    let input_words: Vec<&str> = normalized_input.split_whitespace().collect();
+    let all_generic = input_words.iter().all(|&word| is_too_generic(word));
+    if all_generic && !input_words.is_empty() {
+        return None; // Reject inputs that are only generic words for fuzzy matching
+    }
+
+    // Fuzzy matching with similarity scoring using cached data
+    let mut best_match: Option<(&'static str, f32)> = None;
+
+    for (primary_normalized, all_variants, code) in NORMALIZED_COUNTRIES.iter() {
+        // Check against primary normalized name
+        let score = calculate_similarity_score(&normalized_input, primary_normalized);
+        if score > 0.0 {
+            if let Some((_, best_score)) = best_match {
+                if score > best_score {
+                    best_match = Some((code, score));
+                }
+            } else {
+                best_match = Some((code, score));
             }
         }
-        matches
-    });
 
-    // Return only when exactly one match was found
-    //   prevents cases like "United"
-    if matches.len() == 1 {
-        Some(matches[0])
-    } else {
-        None
-    }
-}
-
-fn fuzzy_compare(input: &str, name: &str) -> bool {
-    let name = name.to_uppercase();
-
-    // Cases like:
-    //    "Vatican" <-> "Holy See (Vatican City State)"
-    //    "Russia"  <-> "Russian Federation"
-    if name.contains(input) || input.contains(&name) {
-        return true;
-    }
-
-    // Cases like:
-    //    "British Virgin Islands" <-> "Virgin Islands, British"
-    //    "Republic of Moldova"    <-> "Moldova, Republic of"
-    if name.contains(',') {
-        let mut name_parts: Vec<&str> = name.split(", ").collect();
-        name_parts.reverse();
-        let reversed_name = name_parts.join(" ");
-        if reversed_name.contains(input) || input.contains(&reversed_name) {
-            return true;
+        // Check against all variants
+        for variant in all_variants {
+            let score = calculate_similarity_score(&normalized_input, variant);
+            if score > 0.0 {
+                if let Some((_, best_score)) = best_match {
+                    if score > best_score {
+                        best_match = Some((code, score));
+                    }
+                } else {
+                    best_match = Some((code, score));
+                }
+            }
         }
     }
 
-    false
+    // Return result if we have a good enough match
+    if let Some((code, score)) = best_match {
+        // Use a higher threshold for very ambiguous cases
+        let threshold = if normalized_input.split_whitespace().count() == 1 { 0.4 } else { 0.2 };
+
+        if score >= threshold {
+            return Some(code);
+        }
+    }
+
+    None
 }
+
+
 
 #[cfg(test)]
 mod tests {
@@ -751,5 +964,71 @@ mod tests {
         // Test invalid flag emojis
         assert_eq!(code("🎌"), None); // Japanese flag emoji, not country flag
         assert_eq!(code("🏴"), None); // Black flag, not country
+    }
+
+    #[test]
+    fn test_current_capabilities_and_enhancement_opportunities() {
+        // This test documents what currently works and what could be enhanced
+
+        // ✅ CURRENTLY WORKING:
+        // - Exact name matching (case insensitive)
+        assert_eq!(code("United States"), Some("US"));
+        assert_eq!(code("UNITED STATES"), Some("US"));
+
+        // - Alternative official names
+        assert_eq!(code("UK"), Some("GB"));
+        assert_eq!(code("UAE"), Some("AE"));
+
+        // - Some fuzzy matching (partial names in official names)
+        assert_eq!(code("Vatican"), Some("VA")); // matches "Holy See (Vatican City State)"
+
+        // - Comma-reversed names (basic)
+        assert_eq!(code("Virgin Islands, British"), Some("VG"));
+        assert_eq!(code("British Virgin Islands"), Some("VG"));
+
+        // - Basic whitespace trimming
+        assert_eq!(code("  United States  "), Some("US"));
+
+        // - Diacritic handling for some cases
+        assert_eq!(code("Côte d'Ivoire"), Some("CI"));
+        assert_eq!(code("Cote D'Ivoire"), Some("CI"));
+
+        // - Ambiguous term rejection (good!)
+        assert_eq!(code("United"), None); // Too ambiguous - prevents false matches
+        assert_eq!(code("Korea"), None); // Too ambiguous - prevents false matches
+
+        // 🚀 ENHANCEMENTS NOW IMPLEMENTED:
+
+        // ✅ "and" ↔ "&" normalization
+        assert_eq!(code("Bosnia & Herzegovina"), Some("BA")); // Bosnia and Herzegovina
+        assert_eq!(code("Saint Vincent and the Grenadines"), Some("VC")); // Saint Vincent & the Grenadines
+
+        // ✅ Government title pattern matching
+        assert_eq!(code("Republic of Moldova"), Some("MD")); // Works via government pattern stripping
+        assert_eq!(code("Democratic People's Republic of Korea"), Some("KP")); // Reversed government patterns
+
+        // ✅ Advanced whitespace normalization (multiple spaces)
+        assert_eq!(code("United   States"), Some("US")); // Multiple spaces handled
+        assert_eq!(code("New  Zealand"), Some("NZ")); // Multiple spaces handled
+
+        // ✅ Enhanced diacritic normalization
+        assert_eq!(code("Curacao"), Some("CW")); // Without ç, using unidecode
+
+        // 🚀 FUTURE ENHANCEMENT OPPORTUNITIES:
+
+        // - Tab/newline character normalization
+        // assert_eq!(code("New\tZealand"), Some("NZ")); // Tab characters
+        // assert_eq!(code("United\nStates"), Some("US")); // Newline characters
+
+        // - Stricter input validation
+        // assert_eq!(code("US123"), None); // Should reject mixed alphanumeric
+        // assert_eq!(code("United$States"), None); // Should reject special chars
+
+        // - Hypothetical government patterns (not official names)
+        // assert_eq!(code("Republic of France"), Some("FR")); // Not official, but could be smart-matched
+        // assert_eq!(code("Kingdom of Spain"), Some("ES")); // Not official, but could be smart-matched
+
+        println!("✅ Current fuzzy matching capabilities documented");
+        println!("🚀 Enhancement opportunities identified for future iterations");
     }
 }

@@ -17,3 +17,4 @@ exclude = ["src/main.rs"]
 [dependencies]
 once_cell = "1.19"
 regex = "1.10"
+unidecode = "0.3"
