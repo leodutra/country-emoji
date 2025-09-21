@@ -18,3 +18,10 @@ exclude = ["src/main.rs"]
 once_cell = "1.19"
 regex = "1.10"
 unidecode = "0.3"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "country_lookup"
+harness = false
