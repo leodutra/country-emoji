@@ -4,9 +4,46 @@
 mod countries;
 use countries::{COUNTRIES, COUNTRIES_CODE_MAP, COUNTRIES_FLAG_MAP};
 use once_cell::sync::Lazy;
+use regex::Regex;
 use unidecode::unidecode;
 
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
+
+// Compiled regex patterns for text normalization (more efficient than repeated replace calls)
+static SAINT_ST_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)\b(st\.?\s+)").unwrap()
+});
+
+static AMPERSAND_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\s*&\s*").unwrap()
+});
+
+static MULTIPLE_SPACES_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\s{2,}").unwrap()
+});
+
+// Compiled government pattern regexes for better performance
+static GOVERNMENT_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
+    vec![
+        (Regex::new(r"^the\s+").unwrap(), ""),
+        (Regex::new(r"^republic\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^democratic\s+republic\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^people's\s+republic\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^kingdom\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^principality\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^federation\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^state\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^commonwealth\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^united\s+states\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^islamic\s+republic\s+of\s+").unwrap(), ""),
+        (Regex::new(r"^socialist\s+republic\s+of\s+").unwrap(), ""),
+        (Regex::new(r"\s+republic$").unwrap(), ""),
+        (Regex::new(r"\s+federation$").unwrap(), ""),
+        (Regex::new(r"\s+kingdom$").unwrap(), ""),
+        (Regex::new(r"\s+islands?$").unwrap(), ""),
+        (Regex::new(r"\s+island$").unwrap(), ""),
+    ]
+});
 
 // Optimized: (code, names_slice)
 pub(crate) type Country = (&'static str, &'static [&'static str]);
@@ -60,30 +97,21 @@ fn trim_upper(text: &str) -> String {
 }
 
 fn normalize_text(text: &str) -> String {
-    let mut normalized = unidecode(text.trim()).to_lowercase();
-
-    // Normalize "and" vs "&" - replace both with a standard form
-    normalized = normalized.replace(" & ", " and ");
-    normalized = normalized.replace("&", " and ");
-
-    // Normalize Saint/St/St. equivalence - standardize to "saint"
-    // Handle word boundaries to avoid false matches
-    normalized = normalized.replace("st. ", "saint ");
-    normalized = normalized.replace(" st. ", " saint ");
-    normalized = normalized.replace(" st ", " saint ");
-
-    // Handle beginning of string cases
-    if normalized.starts_with("st. ") {
-        normalized = normalized.replacen("st. ", "saint ", 1);
-    }
-    if normalized.starts_with("st ") {
-        normalized = normalized.replacen("st ", "saint ", 1);
+    // Fast path for empty/whitespace-only input
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return String::new();
     }
 
-    // Clean up multiple spaces that might result from replacements
-    while normalized.contains("  ") {
-        normalized = normalized.replace("  ", " ");
-    }
+    // Apply unidecode and lowercase in one step
+    let mut normalized = unidecode(trimmed).to_lowercase();
+
+    // Use compiled regex for efficient replacements
+    normalized = AMPERSAND_REGEX.replace_all(&normalized, " and ").into_owned();
+    normalized = SAINT_ST_REGEX.replace_all(&normalized, "saint ").into_owned();
+
+    // Clean up multiple spaces with regex (more efficient than loop)
+    normalized = MULTIPLE_SPACES_REGEX.replace_all(&normalized, " ").into_owned();
 
     normalized.trim().to_string()
 }
@@ -124,46 +152,24 @@ fn strip_government_patterns(text: &str) -> Vec<String> {
 fn strip_government_patterns_internal(text: &str) -> Vec<String> {
     let mut variants = Vec::new();
 
-    // Common government patterns to strip/normalize
-    let patterns = [
-        (r"^the\s+", ""),
-        (r"^republic\s+of\s+", ""),
-        (r"^democratic\s+republic\s+of\s+", ""),
-        (r"^people's\s+republic\s+of\s+", ""),
-        (r"^kingdom\s+of\s+", ""),
-        (r"^principality\s+of\s+", ""),
-        (r"^federation\s+of\s+", ""),
-        (r"^state\s+of\s+", ""),
-        (r"^commonwealth\s+of\s+", ""),
-        (r"^united\s+states\s+of\s+", ""),
-        (r"^islamic\s+republic\s+of\s+", ""),
-        (r"^socialist\s+republic\s+of\s+", ""),
-        (r"\s+republic$", ""),
-        (r"\s+federation$", ""),
-        (r"\s+kingdom$", ""),
-        (r"\s+islands?$", ""),
-        (r"\s+island$", ""),
-    ];
-
     // Known ambiguous terms that should not be created as variants
     let ambiguous_terms = [
         "korea", "guinea", "congo", "virgin", "samoa", "sudan"
     ];
 
-    for (pattern, replacement) in patterns.iter() {
-        if let Ok(re) = regex::Regex::new(pattern) {
-            let stripped = re.replace_all(text, *replacement).trim().to_string();
-            let stripped_lower = stripped.to_lowercase();
+    // Use precompiled regex patterns for better performance
+    for (regex, replacement) in GOVERNMENT_PATTERNS.iter() {
+        let stripped = regex.replace_all(text, *replacement).trim().to_string();
+        let stripped_lower = stripped.to_lowercase();
 
-            // Don't add variants that are too short, generic, or ambiguous
-            if !stripped.is_empty()
-                && stripped != text
-                && !variants.contains(&stripped)
-                && stripped.len() >= 4  // Must be at least 4 characters
-                && !is_too_generic(&stripped_lower)
-                && !ambiguous_terms.contains(&stripped_lower.as_str()) {
-                variants.push(stripped);
-            }
+        // Don't add variants that are too short, generic, or ambiguous
+        if !stripped.is_empty()
+            && stripped != text
+            && !variants.contains(&stripped)
+            && stripped.len() >= 4  // Must be at least 4 characters
+            && !is_too_generic(&stripped_lower)
+            && !ambiguous_terms.contains(&stripped_lower.as_str()) {
+            variants.push(stripped);
         }
     }
 
@@ -185,18 +191,32 @@ fn is_too_generic(word: &str) -> bool {
         return 1.0;
     }
 
+    // Early exit for very different lengths (performance optimization)
+    let input_len = input.len();
+    let country_len = country_name.len();
+    let length_ratio = if input_len > country_len {
+        country_len as f32 / input_len as f32
+    } else {
+        input_len as f32 / country_len as f32
+    };
+
+    // If lengths are very different, unlikely to be good match
+    if length_ratio < 0.2 {
+        return 0.0;
+    }
+
     // One contains the other - but be careful about very short partial matches
     if country_name.contains(input) {
-        let containment_score = input.len() as f32 / country_name.len() as f32;
+        let containment_score = input_len as f32 / country_len as f32;
         // Penalize very short inputs that are just part of longer names
-        if input.len() <= 6 && containment_score < 0.6 {
+        if input_len <= 6 && containment_score < 0.6 {
             return containment_score * 0.3; // Heavy penalty for ambiguous short matches
         }
         return containment_score;
     }
 
     if input.contains(country_name) {
-        return country_name.len() as f32 / input.len() as f32;
+        return country_len as f32 / input_len as f32;
     }
 
     // Jaccard similarity based on words - but be careful with single word inputs
@@ -218,11 +238,11 @@ fn is_too_generic(word: &str) -> bool {
         // If they share common words but the primary nouns are different, reduce score
         let primary_words_input: Vec<&str> = input_words.iter()
             .filter(|&&word| !is_too_generic(word))
-            .cloned()
+            .copied()
             .collect();
         let primary_words_country: Vec<&str> = country_words.iter()
             .filter(|&&word| !is_too_generic(word))
-            .cloned()
+            .copied()
             .collect();
 
         // If there are no shared primary words but shared generic words, heavily penalize
@@ -339,7 +359,24 @@ pub fn flag_to_code(flag: &str) -> Option<&'static str> {
 }
 
 pub fn name_to_code(name: &str) -> Option<&'static str> {
-    let normalized_input = normalize_text(name);
+    // Fast path 1: exact match against original data (before normalization)
+    let trimmed_input = name.trim();
+    if trimmed_input.is_empty() {
+        return None;
+    }
+
+    // Check exact matches in original country data first (case-insensitive)
+    let upper_input = trimmed_input.to_uppercase();
+    for country in COUNTRIES.iter() {
+        for country_name in country_names(country) {
+            if country_name.to_uppercase() == upper_input {
+                return Some(country_code(country));
+            }
+        }
+    }
+
+    // Fast path 2: normalized exact matches
+    let normalized_input = normalize_text(trimmed_input);
 
     // Fast path: exact match using cached normalized data
     for (primary_normalized, all_variants, code) in NORMALIZED_COUNTRIES.iter() {
@@ -365,30 +402,36 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
 
     // Fuzzy matching with similarity scoring using cached data
     let mut best_match: Option<(&'static str, f32)> = None;
+    let mut best_score = 0.0f32;
 
     for (primary_normalized, all_variants, code) in NORMALIZED_COUNTRIES.iter() {
+        // Early exit if we already have a perfect match
+        if best_score >= 1.0 {
+            break;
+        }
+
         // Check against primary normalized name
         let score = calculate_similarity_score(&normalized_input, primary_normalized);
-        if score > 0.0 {
-            if let Some((_, best_score)) = best_match {
-                if score > best_score {
-                    best_match = Some((code, score));
-                }
-            } else {
-                best_match = Some((code, score));
+        if score > best_score {
+            best_match = Some((code, score));
+            best_score = score;
+
+            // Perfect match found, no need to check variants
+            if score >= 1.0 {
+                continue;
             }
         }
 
-        // Check against all variants
+        // Check against all variants only if we don't have a perfect primary match
         for variant in all_variants {
             let score = calculate_similarity_score(&normalized_input, variant);
-            if score > 0.0 {
-                if let Some((_, best_score)) = best_match {
-                    if score > best_score {
-                        best_match = Some((code, score));
-                    }
-                } else {
-                    best_match = Some((code, score));
+            if score > best_score {
+                best_match = Some((code, score));
+                best_score = score;
+
+                // Perfect match found, break inner loop
+                if score >= 1.0 {
+                    break;
                 }
             }
         }
@@ -397,7 +440,9 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
     // Return result if we have a good enough match
     if let Some((code, score)) = best_match {
         // Use a higher threshold for very ambiguous cases
-        let threshold = if normalized_input.split_whitespace().count() == 1 { 0.4 } else { 0.2 };
+        // Count words more efficiently
+        let word_count = normalized_input.matches(' ').count() + 1;
+        let threshold = if word_count == 1 { 0.4 } else { 0.2 };
 
         if score >= threshold {
             return Some(code);
