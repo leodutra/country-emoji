@@ -32,10 +32,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("BH", &["Bahrain", "Bahraini"]),
         ("BI", &["Burundi", "Burundian"]),
         ("BJ", &["Benin", "Beninese"]),
-        (
-            "BL",
-            &["Saint Barthélemy", "St. Barthélemy", "Barthélemois"],
-        ),
+        ("BL", &["Saint Barthélemy", "Barthélemois"]),
         ("BM", &["Bermuda", "Bermudian"]),
         ("BN", &["Brunei", "Brunei Darussalam", "Bruneian"]),
         (
@@ -114,7 +111,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("DZ", &["Algeria", "Algerian"]),
         (
             "EA",
-            &["Ceuta & Melilla", "Ceuta and Melilla", "Ceutí, Melillense"],
+            &["Ceuta & Melilla", "Ceutí, Melillense"],
         ),
         ("EC", &["Ecuador", "Ecuadorean"]),
         ("EE", &["Estonia", "Estonian"]),
@@ -162,7 +159,6 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
             "GS",
             &[
                 "South Georgia & South Sandwich Islands",
-                "South Georgia and the South Sandwich Islands",
                 "South Georgian South Sandwich Islander",
             ],
         ),
@@ -175,7 +171,6 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
             "HM",
             &[
                 "Heard & McDonald Islands",
-                "Heard Island and McDonald Islands",
                 "Heard and McDonald Islander",
             ],
         ),
@@ -207,7 +202,6 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
             "KN",
             &[
                 "Saint Kitts & Nevis",
-                "St. Kitts & Nevis",
                 "Kittitian or Nevisian",
             ],
         ),
@@ -229,7 +223,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
             &["Laos", "Lao People's Democratic Republic", "Laotian"],
         ),
         ("LB", &["Lebanon", "Lebanese"]),
-        ("LC", &["Saint Lucia", "St. Lucia", "Saint Lucian"]),
+        ("LC", &["Saint Lucia", "Saint Lucian"]),
         ("LI", &["Liechtenstein", "Liechtensteiner"]),
         ("LK", &["Sri Lanka", "Sri Lankan"]),
         ("LR", &["Liberia", "Liberian"]),
@@ -242,7 +236,7 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("MC", &["Monaco", "Monegasque"]),
         ("MD", &["Moldova", "Moldovan"]),
         ("ME", &["Montenegro", "Montenegrin"]),
-        ("MF", &["Saint Martin", "St. Martin", "Saint-Martinois"]),
+        ("MF", &["Saint Martin", "Saint-Martinois"]),
         ("MG", &["Madagascar", "Malagasy"]),
         ("MH", &["Marshall Islands", "Marshallese"]),
         (
@@ -292,7 +286,6 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
             "PM",
             &[
                 "Saint Pierre & Miquelon",
-                "St. Pierre & Miquelon",
                 "Saint-Pierrais, Miquelonnais",
             ],
         ),
@@ -322,9 +315,9 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         ("SD", &["Sudan", "Sudanese"]),
         ("SE", &["Sweden", "Swedish"]),
         ("SG", &["Singapore", "Singaporean"]),
-        ("SH", &["St. Helena", "Saint Helena", "Saint Helenian"]),
+        ("SH", &["Saint Helena", "Saint Helenian"]),
         ("SI", &["Slovenia", "Slovene"]),
-        ("SJ", &["Svalbard & Jan Mayen", "Svalbard & Jan Mayen"]),
+        ("SJ", &["Svalbard & Jan Mayen"]),
         ("SK", &["Slovakia", "Slovak"]),
         ("SL", &["Sierra Leone", "Sierra Leonean"]),
         ("SM", &["San Marino", "Sammarinese"]),
@@ -342,7 +335,6 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
             "TC",
             &[
                 "Turks & Caicos Islands",
-                "Turks & Caicos",
                 "Turks & Caicos Islander",
             ],
         ),
@@ -388,19 +380,17 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
         (
             "VC",
             &[
-                "St. Vincent & Grenadines",
                 "Saint Vincent & the Grenadines",
                 "Saint Vincentian",
             ],
         ),
         ("VE", &["Venezuela", "Venezuelan"]),
-        ("VG", &["Virgin Islands, British"]),
+        ("VG", &["British Virgin Islands"]),
         (
             "VI",
             &[
                 "U.S. Virgin Islands",
                 "US Virgin Islands",
-                "Virgin Islands, U.S.",
             ],
         ),
         ("VN", &["Vietnam", "Viet Nam", "Vietnamese"]),

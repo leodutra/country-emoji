@@ -66,6 +66,20 @@ fn normalize_text(text: &str) -> String {
     normalized = normalized.replace(" & ", " and ");
     normalized = normalized.replace("&", " and ");
 
+    // Normalize Saint/St/St. equivalence - standardize to "saint"
+    // Handle word boundaries to avoid false matches
+    normalized = normalized.replace("st. ", "saint ");
+    normalized = normalized.replace(" st. ", " saint ");
+    normalized = normalized.replace(" st ", " saint ");
+
+    // Handle beginning of string cases
+    if normalized.starts_with("st. ") {
+        normalized = normalized.replacen("st. ", "saint ", 1);
+    }
+    if normalized.starts_with("st ") {
+        normalized = normalized.replacen("st ", "saint ", 1);
+    }
+
     // Clean up multiple spaces that might result from replacements
     while normalized.contains("  ") {
         normalized = normalized.replace("  ", " ");
@@ -964,6 +978,63 @@ mod tests {
         // Test invalid flag emojis
         assert_eq!(code("🎌"), None); // Japanese flag emoji, not country flag
         assert_eq!(code("🏴"), None); // Black flag, not country
+    }
+
+    #[test]
+    fn test_saint_st_equivalence() {
+        // Test Saint vs St. vs St equivalence
+        assert_eq!(code("Saint Lucia"), Some("LC"));
+        assert_eq!(code("St. Lucia"), Some("LC"));
+        assert_eq!(code("St Lucia"), Some("LC")); // Without period
+
+        assert_eq!(code("Saint Martin"), Some("MF"));
+        assert_eq!(code("St. Martin"), Some("MF"));
+        assert_eq!(code("St Martin"), Some("MF")); // Without period
+
+        assert_eq!(code("Saint Helena"), Some("SH"));
+        assert_eq!(code("St. Helena"), Some("SH"));
+        assert_eq!(code("St Helena"), Some("SH")); // Without period
+
+        // Test with multiple Saint entries
+        assert_eq!(code("Saint Kitts & Nevis"), Some("KN"));
+        assert_eq!(code("St. Kitts & Nevis"), Some("KN"));
+        assert_eq!(code("St Kitts & Nevis"), Some("KN")); // Without period
+
+        assert_eq!(code("Saint Vincent & the Grenadines"), Some("VC"));
+        assert_eq!(code("St. Vincent & the Grenadines"), Some("VC"));
+        assert_eq!(code("St Vincent & the Grenadines"), Some("VC")); // Without period
+
+        assert_eq!(code("Saint Pierre & Miquelon"), Some("PM"));
+        assert_eq!(code("St. Pierre & Miquelon"), Some("PM"));
+        assert_eq!(code("St Pierre & Miquelon"), Some("PM")); // Without period
+    }
+
+    #[test]
+    fn test_comma_reversal_patterns() {
+        // Test that comma-reversed names work correctly due to fuzzy matching
+
+        // Virgin Islands cases - both should work
+        assert_eq!(code("U.S. Virgin Islands"), Some("VI"));
+        assert_eq!(code("Virgin Islands, U.S."), Some("VI"));
+        assert_eq!(code("Virgin Islands US"), Some("VI"));
+
+        // Korean cases
+        assert_eq!(code("North Korea"), Some("KP"));
+        assert_eq!(code("Korea, Democratic People's Republic of"), Some("KP"));
+        assert_eq!(code("Democratic People's Republic of Korea"), Some("KP"));
+
+        assert_eq!(code("South Korea"), Some("KR"));
+        assert_eq!(code("Korea, Republic of"), Some("KR"));
+        assert_eq!(code("Republic of Korea"), Some("KR"));
+
+        // Congo cases
+        assert_eq!(code("Congo-Kinshasa"), Some("CD"));
+        assert_eq!(code("Congo, The Democratic Republic of the"), Some("CD"));
+        assert_eq!(code("Democratic Republic of the Congo"), Some("CD"));
+
+        // British Virgin Islands
+        assert_eq!(code("Virgin Islands, British"), Some("VG"));
+        assert_eq!(code("British Virgin Islands"), Some("VG"));
     }
 
     #[test]
