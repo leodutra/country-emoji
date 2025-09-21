@@ -1,7 +1,7 @@
 [package]
 name = "country-emoji"
 edition = "2021"
-version = "0.3.1"
+version = "0.3.2"
 description = "Converts between country names, ISO 3166-1 codes and flag emojis."
 readme = "README.md"
 keywords = ["emoji", "country", "flags", "ISO-3166-1", "BCP-47"]
