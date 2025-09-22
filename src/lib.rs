@@ -5,12 +5,12 @@
 //!
 //! ## Features
 //!
-//! - **⚡ Fast lookups** - Optimized for performance with pre-compiled regex patterns
-//! - **🧠 Fuzzy matching** - Handles alternative names, government titles, and formatting variations
-//! - **🌍 Comprehensive data** - All ISO 3166-1 countries including recent additions
-//! - **✨ Normalization** - Handles diacritics, case-insensitivity, whitespace, and abbreviations
-//! - **🔄 Bidirectional conversion** - Convert between any combination of codes, names, and flag emojis
-//! - **🚀 Zero-copy** - Returns string slices where possible for optimal memory usage
+//! - ** Fast lookups** - Optimized for performance with pre-compiled regex patterns
+//! - ** Fuzzy matching** - Handles alternative names, government titles, and formatting variations
+//! - ** Comprehensive data** - All ISO 3166-1 countries including recent additions
+//! - ** Normalization** - Handles diacritics, case-insensitivity, whitespace, and abbreviations
+//! - ** Bidirectional conversion** - Convert between any combination of codes, names, and flag emojis
+//! - ** Zero-copy** - Returns string slices where possible for optimal memory usage
 //!
 //! ## Quick Start
 //!
