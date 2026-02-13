@@ -72,6 +72,7 @@ mod countries;
 use countries::{COUNTRIES, COUNTRIES_CODE_MAP, COUNTRIES_FLAG_MAP};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::collections::HashMap;
 use unidecode::unidecode;
 
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
@@ -105,35 +106,61 @@ static GOVERNMENT_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
 
 pub(crate) type Country = (&'static str, &'static [&'static str]);
 
-type NormalizedCountryData = (String, Vec<String>, &'static str);
+use std::sync::Arc;
 
-static NORMALIZED_COUNTRIES: Lazy<Vec<NormalizedCountryData>> = Lazy::new(|| {
-    COUNTRIES
-        .iter()
-        .map(|country| {
+type NormalizedCountryData = (Arc<str>, Vec<Arc<str>>, &'static str);
+
+static COUNTRIES_DATA: Lazy<(HashMap<Arc<str>, &'static str>, Vec<NormalizedCountryData>)> =
+    Lazy::new(|| {
+        let mut map = HashMap::new();
+        let mut normalized_countries = Vec::new();
+
+        // Pass 1: Insert all explicit country names and normalized forms
+        // This prioritizes exact matches (e.g., "China" for CN) over stripped variants (e.g., "China" from "Republic of China" for TW)
+        for country in COUNTRIES.iter() {
             let code = country_code(country);
             let names = country_names(country);
-            let primary_normalized = normalize_text(names[0]);
+
+            // Prepare normalized data
+            let primary_normalized: Arc<str> = Arc::from(normalize_text(names[0]));
+            map.insert(primary_normalized.clone(), code);
 
             let mut all_variants = Vec::new();
             for name in names {
                 let normalized_name = normalize_text(name);
-                if !all_variants.contains(&normalized_name) {
-                    all_variants.push(normalized_name.clone());
-                }
+                let normalized_arc: Arc<str> = Arc::from(normalized_name);
 
-                let variants = strip_government_patterns(name);
-                for variant in variants {
-                    if !all_variants.contains(&variant) {
-                        all_variants.push(variant);
-                    }
+                if !all_variants.contains(&normalized_arc) {
+                    all_variants.push(normalized_arc.clone());
                 }
+                map.insert(normalized_arc, code);
+
+                // Add lowercased name to map
+                map.insert(Arc::from(name.to_lowercase()), code);
             }
 
-            (primary_normalized, all_variants, code)
-        })
-        .collect()
-});
+            normalized_countries.push((primary_normalized, all_variants, code));
+        }
+
+        // Pass 2: Insert derived variants (stripped government patterns, etc.)
+        // Only insert if the key doesn't already exist to avoid overwriting explicit names with ambiguous derivatives
+        for country in COUNTRIES.iter() {
+            let code = country_code(country);
+            let names = country_names(country);
+
+            for name in names {
+                for variant in strip_government_patterns(name) {
+                    map.entry(Arc::from(variant)).or_insert(code);
+                }
+            }
+        }
+
+        (map, normalized_countries)
+    });
+
+static COUNTRIES_NAME_MAP: Lazy<&HashMap<Arc<str>, &'static str>> = Lazy::new(|| &COUNTRIES_DATA.0);
+
+static NORMALIZED_COUNTRIES: Lazy<&Vec<NormalizedCountryData>> = Lazy::new(|| &COUNTRIES_DATA.1);
 
 pub(crate) fn country_code(country: &Country) -> &'static str {
     country.0
@@ -251,6 +278,9 @@ fn is_too_generic(word: &str) -> bool {
         "central",
         "saint",
         "st",
+        "sao",
+        "tome",
+        "principe",
     ];
     generic_words.contains(&word)
 }
@@ -281,11 +311,16 @@ fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
     if input.contains(country_name) {
         return country_len as f32 / input_len as f32;
     }
-    let input_words: std::collections::HashSet<&str> = input.split_whitespace().collect();
-    let country_words: std::collections::HashSet<&str> = country_name.split_whitespace().collect();
 
-    let intersection = input_words.intersection(&country_words).count();
-    let union = input_words.union(&country_words).count();
+    // Optimization: Avoid HashSet allocations
+    let input_words: Vec<&str> = input.split_whitespace().collect();
+    let country_words: Vec<&str> = country_name.split_whitespace().collect();
+
+    let intersection = input_words
+        .iter()
+        .filter(|&w| country_words.contains(w))
+        .count();
+    let union = input_words.len() + country_words.len() - intersection;
 
     if union > 0 {
         let jaccard_score = intersection as f32 / union as f32;
@@ -293,22 +328,12 @@ fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
         if input_words.len() == 1 && country_words.len() > 1 {
             return jaccard_score * 0.2;
         }
-        let primary_words_input: Vec<&str> = input_words
-            .iter()
-            .filter(|&&word| !is_too_generic(word))
-            .copied()
-            .collect();
-        let primary_words_country: Vec<&str> = country_words
-            .iter()
-            .filter(|&&word| !is_too_generic(word))
-            .copied()
-            .collect();
 
-        let shared_primary = primary_words_input
+        let has_shared_primary = input_words
             .iter()
-            .any(|&word| primary_words_country.contains(&word));
+            .any(|&word| !is_too_generic(word) && country_words.contains(&word));
 
-        if !shared_primary && intersection > 0 {
+        if !has_shared_primary && intersection > 0 {
             return jaccard_score * 0.1;
         }
 
@@ -335,8 +360,7 @@ fn check_by_code(code: &str) -> bool {
 }
 
 fn get_by_code(code: &str) -> Option<&Country> {
-    COUNTRIES_CODE_MAP
-        .get(trim_upper(code).as_str()).copied()
+    COUNTRIES_CODE_MAP.get(trim_upper(code).as_str()).copied()
 }
 
 fn check_by_flag(flag: &str) -> bool {
@@ -648,27 +672,26 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
     if trimmed_input.is_empty() {
         return None;
     }
-    let upper_input = trimmed_input.to_uppercase();
-    for country in COUNTRIES.iter() {
-        for country_name in country_names(country) {
-            if country_name.to_uppercase() == upper_input {
-                return Some(country_code(country));
-            }
-        }
+
+    // Exact/Fast lookups
+    let lower_input = trimmed_input.to_lowercase();
+    if let Some(&code) = COUNTRIES_NAME_MAP.get(lower_input.as_str()) {
+        return Some(code);
     }
 
     let normalized_input = normalize_text(trimmed_input);
-    for (primary_normalized, all_variants, code) in NORMALIZED_COUNTRIES.iter() {
-        if *primary_normalized == normalized_input {
+    if let Some(&code) = COUNTRIES_NAME_MAP.get(normalized_input.as_str()) {
+        return Some(code);
+    }
+
+    // Optimization: pattern matching on input
+    for variant in strip_government_patterns(trimmed_input) {
+        if let Some(&code) = COUNTRIES_NAME_MAP.get(variant.as_str()) {
             return Some(code);
-        }
-        for variant in all_variants {
-            if *variant == normalized_input {
-                return Some(code);
-            }
         }
     }
 
+    // Fuzzy matching
     let input_words: Vec<&str> = normalized_input.split_whitespace().collect();
     let all_generic = input_words.iter().all(|&word| is_too_generic(word));
     if all_generic && !input_words.is_empty() {
