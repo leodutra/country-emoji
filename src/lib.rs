@@ -110,53 +110,54 @@ use std::sync::Arc;
 
 type NormalizedCountryData = (Arc<str>, Vec<Arc<str>>, &'static str);
 
-static COUNTRIES_DATA: Lazy<(HashMap<Arc<str>, &'static str>, Vec<NormalizedCountryData>)> =
-    Lazy::new(|| {
-        let mut map = HashMap::new();
-        let mut normalized_countries = Vec::new();
+type CountryNameMap = HashMap<Arc<str>, &'static str>;
 
-        // Pass 1: Insert all explicit country names and normalized forms
-        // This prioritizes exact matches (e.g., "China" for CN) over stripped variants (e.g., "China" from "Republic of China" for TW)
-        for country in COUNTRIES.iter() {
-            let code = country_code(country);
-            let names = country_names(country);
+static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>)> = Lazy::new(|| {
+    let mut map: CountryNameMap = HashMap::new();
+    let mut normalized_countries = Vec::new();
 
-            // Prepare normalized data
-            let primary_normalized: Arc<str> = Arc::from(normalize_text(names[0]));
-            map.insert(primary_normalized.clone(), code);
+    // Pass 1: Insert all explicit country names and normalized forms
+    // This prioritizes exact matches (e.g., "China" for CN) over stripped variants (e.g., "China" from "Republic of China" for TW)
+    for country in COUNTRIES.iter() {
+        let code = country_code(country);
+        let names = country_names(country);
 
-            let mut all_variants = Vec::new();
-            for name in names {
-                let normalized_name = normalize_text(name);
-                let normalized_arc: Arc<str> = Arc::from(normalized_name);
+        // Prepare normalized data
+        let primary_normalized: Arc<str> = Arc::from(normalize_text(names[0]));
+        map.insert(primary_normalized.clone(), code);
 
-                if !all_variants.contains(&normalized_arc) {
-                    all_variants.push(normalized_arc.clone());
-                }
-                map.insert(normalized_arc, code);
+        let mut all_variants = Vec::new();
+        for name in names {
+            let normalized_name = normalize_text(name);
+            let normalized_arc: Arc<str> = Arc::from(normalized_name);
 
-                // Add lowercased name to map
-                map.insert(Arc::from(name.to_lowercase()), code);
+            if !all_variants.contains(&normalized_arc) {
+                all_variants.push(normalized_arc.clone());
             }
+            map.insert(normalized_arc, code);
 
-            normalized_countries.push((primary_normalized, all_variants, code));
+            // Add lowercased name to map
+            map.insert(Arc::from(name.to_lowercase()), code);
         }
 
-        // Pass 2: Insert derived variants (stripped government patterns, etc.)
-        // Only insert if the key doesn't already exist to avoid overwriting explicit names with ambiguous derivatives
-        for country in COUNTRIES.iter() {
-            let code = country_code(country);
-            let names = country_names(country);
+        normalized_countries.push((primary_normalized, all_variants, code));
+    }
 
-            for name in names {
-                for variant in strip_government_patterns(name) {
-                    map.entry(Arc::from(variant)).or_insert(code);
-                }
+    // Pass 2: Insert derived variants (stripped government patterns, etc.)
+    // Only insert if the key doesn't already exist to avoid overwriting explicit names with ambiguous derivatives
+    for country in COUNTRIES.iter() {
+        let code = country_code(country);
+        let names = country_names(country);
+
+        for name in names {
+            for variant in strip_government_patterns(name) {
+                map.entry(Arc::from(variant)).or_insert(code);
             }
         }
+    }
 
-        (map, normalized_countries)
-    });
+    (map, normalized_countries)
+});
 
 static COUNTRIES_NAME_MAP: Lazy<&HashMap<Arc<str>, &'static str>> = Lazy::new(|| &COUNTRIES_DATA.0);
 
