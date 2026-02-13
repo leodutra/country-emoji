@@ -276,6 +276,8 @@ fn is_too_generic(word: &str) -> bool {
         "saint",
         "st",
         "sao",
+        "tome",
+        "principe",
     ];
     generic_words.contains(&word)
 }

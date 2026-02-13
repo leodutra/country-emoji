@@ -523,3 +523,20 @@ fn test_comprehensive_fuzzy_matching() {
     assert_eq!(code("United"), None);
     assert_eq!(code("Korea"), None);
 }
+
+#[test]
+fn test_removed_ascii_redundancies() {
+    // Verify that removed ASCII names still work via normalization
+    assert_eq!(code("Sao Tome"), Some("ST"));
+    assert_eq!(code("Principe"), Some("ST"));
+    assert_eq!(code("Sao Tome & Principe"), Some("ST"));
+    assert_eq!(code("Sao Tome and Principe"), Some("ST"));
+
+    assert_eq!(code("Curacao"), Some("CW"));
+    assert_eq!(code("Cote D'Ivoire"), Some("CI"));
+
+    // Verify generic term handling
+    assert_eq!(code("Tome"), None); // Too generic
+                                    // "Principe" works because it's an explicit country/territory name, even if generic-sounding
+    assert_eq!(code("Principe"), Some("ST"));
+}
