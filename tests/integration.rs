@@ -104,8 +104,8 @@ fn test_name_operations() {
 }
 
 #[test]
-fn test_updated_country_names() {
-    // Test countries with updated primary names (our name ordering fixes)
+fn test_preferred_display_names() {
+    // Test countries with their official short names and common variations
     assert_eq!(name("KP"), Some("North Korea"));
     assert_eq!(name("KR"), Some("South Korea"));
     assert_eq!(name("LA"), Some("Laos"));
@@ -121,8 +121,8 @@ fn test_updated_country_names() {
 }
 
 #[test]
-fn test_new_countries_added() {
-    // Test newly added countries/territories
+fn test_successor_states() {
+    // Test countries/territories that are successor states or recently dissolved territories
     assert!(name("SS").is_some()); // South Sudan
     assert_eq!(name("SS"), Some("South Sudan"));
 
@@ -137,8 +137,8 @@ fn test_new_countries_added() {
 }
 
 #[test]
-fn test_legacy_compatibility() {
-    // Test that Netherlands Antilles is kept for legacy compatibility
+fn test_legacy_country_codes() {
+    // Test that legacy country codes (e.g., dissolved countries) are kept for compatibility
     // Even though dissolved in 2010, it may still be referenced in legacy systems
     assert_eq!(name("AN"), Some("Netherlands Antilles"));
     assert_eq!(code("Netherlands Antilles"), Some("AN"));
@@ -146,8 +146,8 @@ fn test_legacy_compatibility() {
 }
 
 #[test]
-fn test_alternative_names() {
-    // Test that alternative names still work for lookup
+fn test_long_form_lookup() {
+    // Test that formal/long official names work for lookup
     assert_eq!(code("Russian Federation"), Some("RU"));
     assert_eq!(code("Korea, Democratic People's Republic of"), Some("KP"));
     assert_eq!(code("Korea, Republic of"), Some("KR"));
@@ -160,7 +160,7 @@ fn test_alternative_names() {
 }
 
 #[test]
-fn test_is_code_validation() {
+fn test_is_code() {
     // Test valid codes
     assert!(is_code(Some("US")));
     assert!(is_code(Some("CL")));
@@ -178,7 +178,7 @@ fn test_is_code_validation() {
 }
 
 #[test]
-fn test_is_country_flag_validation() {
+fn test_is_country_flag() {
     // Test valid flags
     assert!(is_country_flag("🇺🇸"));
     assert!(is_country_flag("🇨🇱"));
@@ -362,8 +362,8 @@ fn test_ambiguous_names() {
 }
 
 #[test]
-fn test_alternative_and_historical_names() {
-    // Test alternative names that are officially recognized
+fn test_historical_aliases_and_acronyms() {
+    // Test historical names and common abbreviations that are officially recognized
     assert_eq!(code("Swaziland"), Some("SZ")); // Old name for Eswatini
     assert_eq!(name("SZ"), Some("Eswatini")); // New official name
 
@@ -378,7 +378,7 @@ fn test_alternative_and_historical_names() {
 }
 
 #[test]
-fn test_territory_and_dependency_handling() {
+fn test_dependent_territories() {
     // Test various territories and dependencies
     assert_eq!(code("Puerto Rico"), Some("PR"));
     assert_eq!(code("Guam"), Some("GU"));
@@ -525,8 +525,8 @@ fn test_comprehensive_fuzzy_matching() {
 }
 
 #[test]
-fn test_removed_ascii_redundancies() {
-    // Verify that removed ASCII names still work via normalization
+fn test_ascii_normalization_lookups() {
+    // Verify that ASCII-only names (without diacritics) work via normalization
     assert_eq!(code("Sao Tome"), Some("ST"));
     assert_eq!(code("Principe"), Some("ST"));
     assert_eq!(code("Sao Tome & Principe"), Some("ST"));
