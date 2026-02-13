@@ -114,17 +114,20 @@ type CountryNameMap = HashMap<Arc<str>, &'static str>;
 
 static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>)> = Lazy::new(|| {
     let mut map: CountryNameMap = HashMap::new();
-    let mut normalized_countries = Vec::new();
+    let mut normalized_countries = Vec::with_capacity(COUNTRIES.len());
 
-    // Pass 1: Insert all explicit country names and normalized forms
-    // This prioritizes exact matches (e.g., "China" for CN) over stripped variants (e.g., "China" from "Republic of China" for TW)
+    // Single Pass: Insert explicit names, build normalized data, and insert derived variants
+    // Explicit names use `insert` (overwrite), Derived use `or_insert` (no overwrite)
+    // This ensures explicit names always take precedence, regardless of country order.
     for country in COUNTRIES.iter() {
         let code = country_code(country);
         let names = country_names(country);
 
         // Prepare normalized data
         let primary_normalized: Arc<str> = Arc::from(normalize_text(names[0]));
-        map.insert(primary_normalized.clone(), code);
+
+        // Note: We insert primary_normalized in the loop below as well, but we need the Arcs
+        // for the normalized_countries vector.
 
         let mut all_variants = Vec::new();
         for name in names {
@@ -134,26 +137,19 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>)> = Lazy
             if !all_variants.contains(&normalized_arc) {
                 all_variants.push(normalized_arc.clone());
             }
+            // Explicit name - Force Insert (Overwrite derived if any)
             map.insert(normalized_arc, code);
 
             // Add lowercased name to map
             map.insert(Arc::from(name.to_lowercase()), code);
-        }
 
-        normalized_countries.push((primary_normalized, all_variants, code));
-    }
-
-    // Pass 2: Insert derived variants (stripped government patterns, etc.)
-    // Only insert if the key doesn't already exist to avoid overwriting explicit names with ambiguous derivatives
-    for country in COUNTRIES.iter() {
-        let code = country_code(country);
-        let names = country_names(country);
-
-        for name in names {
+            // Derived variants - Only Insert if Missing
             for variant in strip_government_patterns(name) {
                 map.entry(Arc::from(variant)).or_insert(code);
             }
         }
+
+        normalized_countries.push((primary_normalized, all_variants, code));
     }
 
     (map, normalized_countries)
@@ -280,8 +276,6 @@ fn is_too_generic(word: &str) -> bool {
         "saint",
         "st",
         "sao",
-        "tome",
-        "principe",
     ];
     generic_words.contains(&word)
 }
