@@ -73,6 +73,7 @@
 mod countries;
 use countries::{country_code_index_from_bytes, COUNTRIES, COUNTRIES_BY_CODE_INDEX};
 use once_cell::sync::Lazy;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use unidecode::unidecode;
 
@@ -430,6 +431,35 @@ fn collect_candidate_countries(input_words: &[&str]) -> Option<Vec<usize>> {
     }
 }
 
+#[inline]
+fn lookup_country_name(name: &str) -> Option<&'static str> {
+    COUNTRIES_NAME_MAP.get(name).copied()
+}
+
+#[inline]
+fn direct_name_match(trimmed_input: &str) -> Option<&'static str> {
+    lookup_country_name(&trimmed_input.to_lowercase())
+}
+
+fn normalized_name_match(normalized_input: &str) -> Option<&'static str> {
+    lookup_country_name(normalized_input).or_else(|| {
+        strip_government_patterns(normalized_input)
+            .into_iter()
+            .find_map(|variant| lookup_country_name(variant.as_str()))
+    })
+}
+
+#[inline]
+fn should_reject_fuzzy_match(input_words: &[&str]) -> bool {
+    !input_words.is_empty() && input_words.iter().all(|&word| is_too_generic(word))
+}
+
+fn candidate_indices_for(input_words: &[&str]) -> Cow<'static, [usize]> {
+    collect_candidate_countries(input_words)
+        .map(Cow::Owned)
+        .unwrap_or_else(|| Cow::Borrowed(ALL_COUNTRY_INDICES.as_slice()))
+}
+
 fn is_too_generic(word: &str) -> bool {
     GENERIC_WORDS.contains(&word)
 }
@@ -498,6 +528,48 @@ fn calculate_similarity_score(
     } else {
         0.0
     }
+}
+
+#[inline]
+fn score_country(
+    normalized_input: &str,
+    input_words: &[&str],
+    country: &NormalizedCountryData,
+) -> f32 {
+    let (primary_normalized, all_variants, _) = country;
+
+    all_variants.iter().fold(
+        calculate_similarity_score(normalized_input, input_words, primary_normalized),
+        |best_score, variant| {
+            best_score.max(calculate_similarity_score(normalized_input, input_words, variant))
+        },
+    )
+}
+
+fn best_fuzzy_match(normalized_input: &str, input_words: &[&str]) -> Option<(&'static str, f32)> {
+    let mut best_match = None;
+    let mut best_score = 0.0f32;
+
+    for &country_index in candidate_indices_for(input_words).iter() {
+        let country = &NORMALIZED_COUNTRIES[country_index];
+        let score = score_country(normalized_input, input_words, country);
+
+        if score > best_score {
+            best_score = score;
+            best_match = Some((country.2, score));
+
+            if score >= 1.0 {
+                break;
+            }
+        }
+    }
+
+    best_match
+}
+
+#[inline]
+fn fuzzy_match_threshold(input_words: &[&str]) -> f32 {
+    if input_words.len() == 1 { 0.4 } else { 0.2 }
 }
 
 pub(crate) fn code_to_flag_emoji(code: &str) -> String {
@@ -863,74 +935,21 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
         return None;
     }
 
-    // Exact/Fast lookups
-    let lower_input = trimmed_input.to_lowercase();
-    if let Some(&code) = COUNTRIES_NAME_MAP.get(lower_input.as_str()) {
+    if let Some(code) = direct_name_match(trimmed_input) {
         return Some(code);
     }
 
     let normalized_input = normalize_text(trimmed_input);
-    if let Some(&code) = COUNTRIES_NAME_MAP.get(normalized_input.as_str()) {
+    if let Some(code) = normalized_name_match(&normalized_input) {
         return Some(code);
     }
 
-    // Optimization: pattern matching on input
-    for variant in strip_government_patterns(normalized_input.as_str()) {
-        if let Some(&code) = COUNTRIES_NAME_MAP.get(variant.as_str()) {
-            return Some(code);
-        }
-    }
-
-    // Fuzzy matching
     let input_words: Vec<&str> = normalized_input.split_whitespace().collect();
-    let all_generic = input_words.iter().all(|&word| is_too_generic(word));
-    if all_generic && !input_words.is_empty() {
+    if should_reject_fuzzy_match(&input_words) {
         return None;
     }
 
-    let candidate_indices = collect_candidate_countries(&input_words);
-    let candidate_indices = candidate_indices
-        .as_deref()
-        .unwrap_or(ALL_COUNTRY_INDICES.as_slice());
-
-    let mut best_match: Option<(&'static str, f32)> = None;
-    let mut best_score = 0.0f32;
-
-    for &country_index in candidate_indices {
-        let (primary_normalized, all_variants, code) = &NORMALIZED_COUNTRIES[country_index];
-        if best_score >= 1.0 {
-            break;
-        }
-        let score = calculate_similarity_score(&normalized_input, &input_words, primary_normalized);
-        if score > best_score {
-            best_match = Some((code, score));
-            best_score = score;
-
-            if score >= 1.0 {
-                continue;
-            }
-        }
-        for variant in all_variants {
-            let score = calculate_similarity_score(&normalized_input, &input_words, variant);
-            if score > best_score {
-                best_match = Some((code, score));
-                best_score = score;
-
-                if score >= 1.0 {
-                    break;
-                }
-            }
-        }
-    }
-
-    if let Some((code, score)) = best_match {
-        let word_count = normalized_input.matches(' ').count() + 1;
-        let threshold = if word_count == 1 { 0.4 } else { 0.2 };
-
-        if score >= threshold {
-            return Some(code);
-        }
-    }
-
-    None
+    best_fuzzy_match(&normalized_input, &input_words)
+        .filter(|(_, score)| *score >= fuzzy_match_threshold(&input_words))
+        .map(|(code, _)| code)
 }
