@@ -270,39 +270,34 @@ fn test_comprehensive_country_coverage() {
 
 #[test]
 fn test_diacritic_variations() {
-    // Test that diacritics don't prevent matching (if implemented)
-    // These should all match regardless of accent marks
+    // Diacritics should not prevent matching.
     assert_eq!(code("Cote d'Ivoire"), Some("CI"));
     assert_eq!(code("Côte d'Ivoire"), Some("CI"));
     assert_eq!(code("COTE D'IVOIRE"), Some("CI"));
 
-    // Test other countries with diacritics
+    // Other countries with diacritics should normalize as well.
     assert_eq!(name("CW"), Some("Curaçao"));
-    // These should work if diacritic normalization is implemented
-    // assert_eq!(code("Curacao"), Some("CW")); // Without diacritic
-    // assert_eq!(code("CURACAO"), Some("CW"));
+    assert_eq!(code("Curacao"), Some("CW"));
+    assert_eq!(code("CURACAO"), Some("CW"));
 }
 
 #[test]
 fn test_and_ampersand_variations() {
-    // Test "and" vs "&" handling in country names
-    // Bosnia and Herzegovina
+    // Test "and" vs "&" handling in country names.
     assert_eq!(code("Bosnia and Herzegovina"), Some("BA"));
-    // Current system doesn't handle "&" variations - this would need enhancement
-    // assert_eq!(code("Bosnia & Herzegovina"), Some("BA"));
+    assert_eq!(code("Bosnia & Herzegovina"), Some("BA"));
 
-    // Antigua and Barbuda
+    // Antigua and Barbuda.
     assert_eq!(code("Antigua and Barbuda"), Some("AG"));
-    // assert_eq!(code("Antigua & Barbuda"), Some("AG"));
+    assert_eq!(code("Antigua & Barbuda"), Some("AG"));
 
-    // Trinidad and Tobago
+    // Trinidad and Tobago.
     assert_eq!(code("Trinidad and Tobago"), Some("TT"));
-    // assert_eq!(code("Trinidad & Tobago"), Some("TT"));
+    assert_eq!(code("Trinidad & Tobago"), Some("TT"));
 
-    // Saint Vincent & the Grenadines (this is the actual name in data)
+    // Saint Vincent and the Grenadines should normalize in both directions.
     assert_eq!(code("Saint Vincent & the Grenadines"), Some("VC"));
-    // This would need enhancement to work:
-    // assert_eq!(code("Saint Vincent and the Grenadines"), Some("VC"));
+    assert_eq!(code("Saint Vincent and the Grenadines"), Some("VC"));
 }
 
 #[test]
@@ -402,17 +397,17 @@ fn test_dependent_territories() {
 
 #[test]
 fn test_whitespace_normalization() {
-    // Test basic whitespace trimming (this should work)
+    // Leading and trailing whitespace should be ignored.
     assert_eq!(code("  United States  "), Some("US"));
 
-    // These advanced whitespace normalizations would need enhancement:
-    // assert_eq!(code("United   States"), Some("US")); // Multiple spaces
-    // assert_eq!(code("United\tStates"), Some("US")); // Tab character
-    // assert_eq!(code("United\nStates"), Some("US")); // Newline character
+    // Internal whitespace should normalize across spaces and other ASCII whitespace.
+    assert_eq!(code("United   States"), Some("US"));
+    assert_eq!(code("United\tStates"), Some("US"));
+    assert_eq!(code("United\nStates"), Some("US"));
 
-    // Test with other countries
+    // Same normalization should apply to other countries.
     assert_eq!(code("  United Kingdom  "), Some("GB"));
-    // assert_eq!(code("New   Zealand"), Some("NZ")); // Multiple spaces would need enhancement
+    assert_eq!(code("New   Zealand"), Some("NZ"));
 }
 
 #[test]

@@ -103,11 +103,48 @@ const GOVERNMENT_SUFFIXES: &[&str] = &[
 
 const AMBIGUOUS_STRIPPED_TERMS: &[&str] = &["korea", "guinea", "congo", "virgin", "samoa", "sudan"];
 
+const GENERIC_WORDS: &[&str] = &[
+    "united",
+    "republic",
+    "democratic",
+    "kingdom",
+    "state",
+    "states",
+    "island",
+    "islands",
+    "federation",
+    "people",
+    "socialist",
+    "islamic",
+    "principality",
+    "commonwealth",
+    "the",
+    "of",
+    "and",
+    "&",
+    "new",
+    "north",
+    "south",
+    "east",
+    "west",
+    "central",
+    "saint",
+    "st",
+    "sao",
+    "tome",
+    "principe",
+];
+
 pub(crate) type Country = (&'static str, &'static [&'static str]);
 
 use std::sync::Arc;
 
-type NormalizedCountryData = (Arc<str>, Vec<Arc<str>>, &'static str);
+struct NormalizedNameData {
+    text: Arc<str>,
+    words: Box<[Arc<str>]>,
+}
+
+type NormalizedCountryData = (NormalizedNameData, Vec<NormalizedNameData>, &'static str);
 
 type CountryNameMap = HashMap<Arc<str>, &'static str>;
 type WordCountryIndex = HashMap<Arc<str>, Vec<usize>>;
@@ -127,26 +164,30 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>, WordCou
             let country_index = normalized_countries.len();
 
             // Prepare normalized data
-            let primary_normalized: Arc<str> = Arc::from(normalize_text(names[0]));
+            let primary_normalized_text: Arc<str> = Arc::from(normalize_text(names[0]));
+            index_variant_words(&mut word_index, &primary_normalized_text, country_index);
+            let primary_normalized = build_normalized_name_data(primary_normalized_text.clone());
 
-            // Note: We insert primary_normalized in the loop below as well, but we need the Arcs
-            // for the normalized_countries vector.
+            // Note: We insert primary_normalized_text in the loop below as well, but we need the
+            // tokenized representation for normalized_countries.
 
             let mut all_variants = Vec::new();
             for name in names {
                 let normalized_name = normalize_text(name);
                 let normalized_arc: Arc<str> = Arc::from(normalized_name);
 
-                if !all_variants.contains(&normalized_arc) {
-                    all_variants.push(normalized_arc.clone());
+                if normalized_arc.as_ref() != primary_normalized.text.as_ref()
+                    && !all_variants.iter().any(|variant: &NormalizedNameData| {
+                        variant.text.as_ref() == normalized_arc.as_ref()
+                    })
+                {
                     index_variant_words(&mut word_index, &normalized_arc, country_index);
+                    all_variants.push(build_normalized_name_data(normalized_arc.clone()));
                 }
                 // Explicit name - Force Insert (Overwrite derived if any)
-                map.insert(normalized_arc, code);
+                map.insert(normalized_arc.clone(), code);
 
-                if let Some(articleless_variant) =
-                    remove_articles(all_variants.last().unwrap().as_ref())
-                {
+                if let Some(articleless_variant) = remove_articles(normalized_arc.as_ref()) {
                     let articleless_arc: Arc<str> = Arc::from(articleless_variant.as_str());
                     map.entry(articleless_arc.clone()).or_insert(code);
                     index_variant_words(&mut word_index, &articleless_arc, country_index);
@@ -156,7 +197,7 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>, WordCou
                 map.insert(Arc::from(name.to_lowercase()), code);
 
                 // Derived variants - Only Insert if Missing
-                for variant in strip_government_patterns(all_variants.last().unwrap().as_ref()) {
+                for variant in strip_government_patterns(normalized_arc.as_ref()) {
                     let variant_arc: Arc<str> = Arc::from(variant.as_str());
                     map.entry(variant_arc.clone()).or_insert(code);
                     index_variant_words(&mut word_index, &variant_arc, country_index);
@@ -254,6 +295,16 @@ fn normalize_ascii_text(bytes: &[u8]) -> String {
     }
 
     result
+}
+
+fn build_normalized_name_data(text: Arc<str>) -> NormalizedNameData {
+    let words = text
+        .split_whitespace()
+        .map(Arc::<str>::from)
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+
+    NormalizedNameData { text, words }
 }
 
 fn remove_articles(text: &str) -> Option<String> {
@@ -377,46 +428,25 @@ fn collect_candidate_countries(input_words: &[&str]) -> Option<Vec<usize>> {
 }
 
 fn is_too_generic(word: &str) -> bool {
-    let generic_words = [
-        "united",
-        "republic",
-        "democratic",
-        "kingdom",
-        "state",
-        "states",
-        "island",
-        "islands",
-        "federation",
-        "people",
-        "socialist",
-        "islamic",
-        "principality",
-        "commonwealth",
-        "the",
-        "of",
-        "and",
-        "&",
-        "new",
-        "north",
-        "south",
-        "east",
-        "west",
-        "central",
-        "saint",
-        "st",
-        "sao",
-        "tome",
-        "principe",
-    ];
-    generic_words.contains(&word)
+    GENERIC_WORDS.contains(&word)
 }
 
-fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
-    if input == country_name {
+fn contains_country_word(country_words: &[Arc<str>], word: &str) -> bool {
+    country_words
+        .iter()
+        .any(|country_word| country_word.as_ref() == word)
+}
+
+fn calculate_similarity_score(
+    input: &str,
+    input_words: &[&str],
+    country_name: &NormalizedNameData,
+) -> f32 {
+    if input == country_name.text.as_ref() {
         return 1.0;
     }
     let input_len = input.len();
-    let country_len = country_name.len();
+    let country_len = country_name.text.len();
     let length_ratio = if input_len > country_len {
         country_len as f32 / input_len as f32
     } else {
@@ -426,7 +456,7 @@ fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
     if length_ratio < 0.2 {
         return 0.0;
     }
-    if country_name.contains(input) {
+    if country_name.text.contains(input) {
         let containment_score = input_len as f32 / country_len as f32;
         if input_len <= 6 && containment_score < 0.6 {
             return containment_score * 0.3;
@@ -434,17 +464,15 @@ fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
         return containment_score;
     }
 
-    if input.contains(country_name) {
+    if input.contains(country_name.text.as_ref()) {
         return country_len as f32 / input_len as f32;
     }
 
-    // Optimization: Avoid HashSet allocations
-    let input_words: Vec<&str> = input.split_whitespace().collect();
-    let country_words: Vec<&str> = country_name.split_whitespace().collect();
+    let country_words = country_name.words.as_ref();
 
     let intersection = input_words
         .iter()
-        .filter(|&w| country_words.contains(w))
+        .filter(|word| contains_country_word(country_words, word))
         .count();
     let union = input_words.len() + country_words.len() - intersection;
 
@@ -457,7 +485,7 @@ fn calculate_similarity_score(input: &str, country_name: &str) -> f32 {
 
         let has_shared_primary = input_words
             .iter()
-            .any(|&word| !is_too_generic(word) && country_words.contains(&word));
+            .any(|&word| !is_too_generic(word) && contains_country_word(country_words, word));
 
         if !has_shared_primary && intersection > 0 {
             return jaccard_score * 0.1;
@@ -844,7 +872,7 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
         if best_score >= 1.0 {
             break;
         }
-        let score = calculate_similarity_score(&normalized_input, primary_normalized);
+        let score = calculate_similarity_score(&normalized_input, &input_words, primary_normalized);
         if score > best_score {
             best_match = Some((code, score));
             best_score = score;
@@ -854,7 +882,7 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
             }
         }
         for variant in all_variants {
-            let score = calculate_similarity_score(&normalized_input, variant);
+            let score = calculate_similarity_score(&normalized_input, &input_words, variant);
             if score > best_score {
                 best_match = Some((code, score));
                 best_score = score;
