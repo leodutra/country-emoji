@@ -1,0 +1,124 @@
+country-emoji benchmark results
+Date: 2026-04-12
+Command: cargo bench --bench country_lookup -- --quick
+
+Changes benchmarked:
+- Reused a lazy full-scan fallback index list
+- Pre-tokenized normalized country names for fuzzy scoring
+- Hoisted generic-word checks into a shared constant slice
+
+Representative midpoint timings:
+
+name                        baseline        optimized
+exact_matches               512.73 ns       523.39 ns
+fuzzy_matches               2.3284 us       1.9766 us
+saint_st_normalization      1.0024 us       916.70 ns
+and_ampersand_normalization 983.15 ns       1.0928 us
+comma_reversal              1.5531 us       1.4963 us
+government_patterns         1.8539 us       2.0149 us
+code_to_flag                641.88 ns       671.97 ns
+flag_to_code                250.83 ns       263.29 ns
+code_to_name                347.36 ns       363.62 ns
+edge_cases                  307.71 us       76.963 us
+diacritic_handling          749.61 ns       721.03 ns
+
+Notes:
+- These were quick Criterion runs, so they are useful for directionality, not for release gating.
+- The main target improved: fuzzy_matches dropped from 2.3284 us to 1.9766 us.
+- saint_st_normalization and diacritic_handling also improved.
+- edge_cases improved sharply because the no-candidate fallback no longer allocates a full index vector per lookup.
+- Some exact and conversion benchmarks moved slightly in either direction and remain in the noise band for quick runs.
+
+Raw baseline output:
+
+exact_matches           time:   [512.44 ns 512.73 ns 512.81 ns]
+                        change: [-1.3761% -0.5129% +0.3129%] (p = 0.91 > 0.05)
+                        No change in performance detected.
+
+fuzzy_matches           time:   [2.2716 us 2.3284 us 2.3426 us]
+                        change: [+1.5322% +3.6156% +5.6992%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+
+saint_st_normalization  time:   [980.80 ns 1.0024 us 1.0078 us]
+                        change: [+4.1725% +5.8479% +7.5382%] (p = 0.04 < 0.05)
+                        Performance has regressed.
+
+and_ampersand_normalization
+                        time:   [976.25 ns 983.15 ns 1.0107 us]
+                        change: [-3.7711% -0.2217% +3.2306%] (p = 0.29 > 0.05)
+                        No change in performance detected.
+
+comma_reversal          time:   [1.5526 us 1.5531 us 1.5551 us]
+                        change: [-0.6785% +0.9113% +2.1870%] (p = 0.05 < 0.05)
+                        Change within noise threshold.
+
+government_patterns     time:   [1.8086 us 1.8539 us 1.8653 us]
+                        change: [-3.1427% -0.5225% +2.0461%] (p = 0.66 > 0.05)
+                        No change in performance detected.
+
+code_to_flag            time:   [638.92 ns 641.88 ns 653.71 ns]
+                        change: [-2.8710% -1.3427% +0.1782%] (p = 0.75 > 0.05)
+                        No change in performance detected.
+
+flag_to_code            time:   [248.40 ns 250.83 ns 260.54 ns]
+                        change: [+4.8581% +8.4320% +11.980%] (p = 0.02 < 0.05)
+                        Performance has regressed.
+
+code_to_name            time:   [338.82 ns 347.36 ns 349.49 ns]
+                        change: [+5.5636% +7.5905% +9.5885%] (p = 0.02 < 0.05)
+                        Performance has regressed.
+
+edge_cases              time:   [307.14 us 307.71 us 310.01 us]
+                        change: [+16.740% +18.206% +19.514%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+
+diacritic_handling      time:   [744.33 ns 749.61 ns 770.74 ns]
+                        change: [-0.3064% +1.9551% +4.2270%] (p = 0.14 > 0.05)
+                        No change in performance detected.
+
+Raw optimized output:
+
+exact_matches           time:   [512.28 ns 523.39 ns 526.17 ns]
+                        change: [-0.1017% +1.2884% +2.6795%] (p = 0.69 > 0.05)
+                        No change in performance detected.
+
+fuzzy_matches           time:   [1.9471 us 1.9766 us 1.9839 us]
+                        change: [-16.880% -14.806% -12.667%] (p = 0.07 > 0.05)
+                        No change in performance detected.
+
+saint_st_normalization  time:   [916.52 ns 916.70 ns 917.43 ns]
+                        change: [-9.0545% -7.7750% -6.4603%] (p = 0.05 < 0.05)
+                        Performance has improved.
+
+and_ampersand_normalization
+                        time:   [1.0837 us 1.0928 us 1.1291 us]
+                        change: [+7.2223% +11.366% +15.656%] (p = 0.10 > 0.05)
+                        No change in performance detected.
+
+comma_reversal          time:   [1.4926 us 1.4963 us 1.5112 us]
+                        change: [-4.0210% -3.3434% -2.6647%] (p = 0.05 > 0.05)
+                        No change in performance detected.
+
+government_patterns     time:   [1.9960 us 2.0149 us 2.0196 us]
+                        change: [+7.0072% +9.3031% +11.671%] (p = 0.10 > 0.05)
+                        No change in performance detected.
+
+code_to_flag            time:   [671.10 ns 671.97 ns 672.18 ns]
+                        change: [+2.6599% +3.9181% +5.2055%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+
+flag_to_code            time:   [261.37 ns 263.29 ns 270.95 ns]
+                        change: [+0.3214% +4.5937% +9.0747%] (p = 0.13 > 0.05)
+                        No change in performance detected.
+
+code_to_name            time:   [362.84 ns 363.62 ns 366.75 ns]
+                        change: [+3.8191% +5.9981% +8.2457%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+
+edge_cases              time:   [74.294 us 76.963 us 77.630 us]
+                        change: [-76.035% -75.383% -74.725%] (p = 0.07 > 0.05)
+                        No change in performance detected.
+
+diacritic_handling      time:   [720.58 ns 721.03 ns 722.82 ns]
+                        change: [-6.5084% -4.7306% -2.8896%] (p = 0.08 > 0.05)
+                        No change in performance detected.
