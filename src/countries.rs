@@ -1,6 +1,24 @@
 use crate::Country;
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
+
+pub(crate) const COUNTRY_CODE_INDEX_SIZE: usize = 26 * 26;
+
+pub(crate) fn country_code_index_from_bytes(bytes: &[u8]) -> Option<usize> {
+    if bytes.len() != 2 {
+        return None;
+    }
+
+    let first = bytes[0].to_ascii_uppercase();
+    let second = bytes[1].to_ascii_uppercase();
+
+    if !first.is_ascii_uppercase() || !second.is_ascii_uppercase() {
+        return None;
+    }
+
+    // Treat the 2-letter code as a base-26 number where A=0 and Z=25,
+    // so AA maps to 0, AB to 1, BA to 26, and ZZ to 675.
+    Some(((first - b'A') as usize) * 26 + (second - b'A') as usize)
+}
 
 // TODO UPDATE LIST
 pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
@@ -426,17 +444,17 @@ pub(crate) static COUNTRIES: Lazy<Vec<Country>> = Lazy::new(|| {
     ]
 });
 
-pub(crate) static COUNTRIES_CODE_MAP: Lazy<HashMap<&str, &Country>> = Lazy::new(|| {
-    COUNTRIES
-        .iter()
-        .map(|country| (country.0, country))
-        .collect()
-});
+pub(crate) static COUNTRIES_BY_CODE_INDEX: Lazy<
+    [Option<&'static Country>; COUNTRY_CODE_INDEX_SIZE],
+> = Lazy::new(|| {
+    let mut countries_by_code: [Option<&'static Country>; COUNTRY_CODE_INDEX_SIZE] =
+        [None; COUNTRY_CODE_INDEX_SIZE];
 
-pub(crate) static COUNTRIES_FLAG_MAP: Lazy<HashMap<String, &Country>> = Lazy::new(|| {
-    use crate::code_to_flag_emoji;
-    COUNTRIES
-        .iter()
-        .map(|country| (code_to_flag_emoji(country.0), country))
-        .collect()
+    for country in COUNTRIES.iter() {
+        if let Some(index) = country_code_index_from_bytes(country.0.as_bytes()) {
+            countries_by_code[index] = Some(country);
+        }
+    }
+
+    countries_by_code
 });

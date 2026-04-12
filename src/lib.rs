@@ -71,11 +71,14 @@
 //! ```
 
 mod countries;
-use countries::{COUNTRIES, COUNTRIES_CODE_MAP, COUNTRIES_FLAG_MAP};
+use countries::{country_code_index_from_bytes, COUNTRIES, COUNTRIES_BY_CODE_INDEX};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use unidecode::unidecode;
 
+// Unicode regional indicator symbols start at U+1F1E6, which corresponds to 'A'.
+// This lets us convert between ASCII country-code letters and flag-symbol letters.
+const REGIONAL_INDICATOR_START: u32 = FLAG_MAGIC_NUMBER + b'A' as u32;
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
 const GOVERNMENT_PREFIXES: &[&str] = &[
     "the ",
@@ -509,20 +512,46 @@ pub(crate) fn code_to_flag_emoji(code: &str) -> String {
     flag
 }
 
+fn country_code_index(code: &str) -> Option<usize> {
+    country_code_index_from_bytes(code.trim().as_bytes())
+}
+
+fn regional_indicator_index(indicator: char) -> Option<usize> {
+    let indicator = indicator as u32;
+
+    if (REGIONAL_INDICATOR_START..=REGIONAL_INDICATOR_START + 25).contains(&indicator) {
+        Some((indicator - REGIONAL_INDICATOR_START) as usize)
+    } else {
+        None
+    }
+}
+
+fn flag_country_index(flag: &str) -> Option<usize> {
+    let mut indicators = flag.trim().chars();
+    let first = regional_indicator_index(indicators.next()?)?;
+    let second = regional_indicator_index(indicators.next()?)?;
+
+    if indicators.next().is_some() {
+        return None;
+    }
+
+    Some(first * 26 + second)
+}
+
 fn check_by_code(code: &str) -> bool {
-    COUNTRIES_CODE_MAP.contains_key(trim_upper(code).as_str())
+    get_by_code(code).is_some()
 }
 
 fn get_by_code(code: &str) -> Option<&Country> {
-    COUNTRIES_CODE_MAP.get(trim_upper(code).as_str()).copied()
+    country_code_index(code).and_then(|index| COUNTRIES_BY_CODE_INDEX[index])
 }
 
 fn check_by_flag(flag: &str) -> bool {
-    COUNTRIES_FLAG_MAP.contains_key(flag.trim())
+    get_by_flag(flag).is_some()
 }
 
 fn get_by_flag(flag: &str) -> Option<&Country> {
-    COUNTRIES_FLAG_MAP.get(flag.trim()).copied()
+    flag_country_index(flag).and_then(|index| COUNTRIES_BY_CODE_INDEX[index])
 }
 
 /// Resolves a flag emoji or country-like text to an ISO 3166-1 alpha-2 code.
