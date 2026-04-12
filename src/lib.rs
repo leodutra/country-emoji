@@ -175,6 +175,9 @@ static NORMALIZED_COUNTRIES: Lazy<&Vec<NormalizedCountryData>> = Lazy::new(|| &C
 
 static WORD_COUNTRY_INDEX: Lazy<&WordCountryIndex> = Lazy::new(|| &COUNTRIES_DATA.2);
 
+static ALL_COUNTRY_INDICES: Lazy<Vec<usize>> =
+    Lazy::new(|| (0..NORMALIZED_COUNTRIES.len()).collect());
+
 fn trim_upper(text: &str) -> String {
     text.trim().to_ascii_uppercase()
 }
@@ -828,13 +831,15 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
         return None;
     }
 
-    let candidate_indices = collect_candidate_countries(&input_words)
-        .unwrap_or_else(|| (0..NORMALIZED_COUNTRIES.len()).collect());
+    let candidate_indices = collect_candidate_countries(&input_words);
+    let candidate_indices = candidate_indices
+        .as_deref()
+        .unwrap_or(ALL_COUNTRY_INDICES.as_slice());
 
     let mut best_match: Option<(&'static str, f32)> = None;
     let mut best_score = 0.0f32;
 
-    for country_index in candidate_indices {
+    for &country_index in candidate_indices {
         let (primary_normalized, all_variants, code) = &NORMALIZED_COUNTRIES[country_index];
         if best_score >= 1.0 {
             break;
