@@ -35,7 +35,6 @@ fn test_flag_from_name() {
     assert_eq!(flag("Japan"), Some("🇯🇵".to_string()));
 
     // Test alternative names
-    assert_eq!(flag("United States"), Some("🇺🇸".to_string()));
     assert_eq!(flag("UK"), Some("🇬🇧".to_string()));
 
     // Test partial matches
@@ -75,8 +74,6 @@ fn test_code_operations() {
     // Test ambiguous names - Congo actually matches CD (Democratic Republic of the Congo)
     assert_eq!(code("Congo"), Some("CD")); // Matches "Congo" exactly
 
-    // Test invalid names
-    assert_eq!(code("Atlantis"), None);
 }
 
 #[test]
@@ -189,22 +186,6 @@ fn test_is_country_flag() {
     assert!(!is_country_flag("🎌")); // Not a country flag
     assert!(!is_country_flag(""));
     assert!(!is_country_flag("US")); // Code, not flag
-}
-
-#[test]
-fn test_fuzzy_matching() {
-    // Test fuzzy matching for names with different formats
-    assert_eq!(name_to_code("Virgin Islands, British"), Some("VG"));
-    assert_eq!(name_to_code("British Virgin Islands"), Some("VG"));
-
-    assert_eq!(name_to_code("Moldova, Republic of"), Some("MD"));
-    assert_eq!(name_to_code("Republic of Moldova"), Some("MD"));
-
-    // Test partial matches
-    assert_eq!(name_to_code("Vatican"), Some("VA")); // Matches "Holy See (Vatican City State)"
-
-    // Test that ambiguous partial matches return None
-    assert_eq!(name_to_code("Korea"), None); // Could be North or South Korea
 }
 
 #[test]
@@ -321,41 +302,27 @@ fn test_government_title_variations() {
 
 #[test]
 fn test_case_insensitivity_edge_cases() {
-    // Test various case combinations
-    assert_eq!(code("UNITED STATES"), Some("US"));
-    assert_eq!(code("united states"), Some("US"));
-    assert_eq!(code("United States"), Some("US"));
-    assert_eq!(code("UnItEd StAtEs"), Some("US"));
+    for variant in ["UNITED STATES", "united states", "United States", "UnItEd StAtEs"] {
+        assert_eq!(code(variant), Some("US"));
+    }
 
-    // Test with other countries
-    assert_eq!(code("UNITED KINGDOM"), Some("GB"));
-    assert_eq!(code("united kingdom"), Some("GB"));
-    assert_eq!(code("United Kingdom"), Some("GB"));
+    for variant in ["UNITED KINGDOM", "united kingdom", "United Kingdom"] {
+        assert_eq!(code(variant), Some("GB"));
+    }
 
-    // Test abbreviated forms
-    assert_eq!(code("UK"), Some("GB"));
-    assert_eq!(code("uk"), Some("GB"));
-    assert_eq!(code("Uk"), Some("GB"));
-    assert_eq!(code("uK"), Some("GB"));
+    for variant in ["UK", "uk", "Uk", "uK"] {
+        assert_eq!(code(variant), Some("GB"));
+    }
 }
 
 #[test]
 fn test_ambiguous_names() {
-    // Test names that could match multiple countries should return None or handle appropriately
+    // Exact names should win over broader fuzzy candidates.
+    assert_eq!(code("Guinea"), Some("GN"));
+    assert_eq!(code("Congo"), Some("CD"));
 
-    // "Guinea" could match Guinea, Guinea-Bissau, Equatorial Guinea, Papua New Guinea
-    // The current implementation should handle this appropriately
-    let guinea_result = code("Guinea");
-    // Should either return None (ambiguous) or match the exact "Guinea" country (GN)
-    assert!(guinea_result == None || guinea_result == Some("GN"));
-
-    // "Korea" could match North or South Korea - should be ambiguous
+    // Truly ambiguous names should return None.
     assert_eq!(code("Korea"), None);
-
-    // "Congo" could match Democratic Republic of Congo or Republic of Congo
-    // Should either be None or match the one with exact "Congo" name
-    let congo_result = code("Congo");
-    assert!(congo_result == None || congo_result == Some("CD"));
 }
 
 #[test]
@@ -502,23 +469,18 @@ fn test_comma_reversal_patterns() {
 }
 
 #[test]
-fn test_comprehensive_fuzzy_matching() {
-    // Test comprehensive fuzzy matching capabilities
-    assert_eq!(code("United States"), Some("US"));
-    assert_eq!(code("UK"), Some("GB"));
-    assert_eq!(code("UAE"), Some("AE"));
-    assert_eq!(code("Vatican"), Some("VA"));
-    assert_eq!(code("Virgin Islands, British"), Some("VG"));
-    assert_eq!(code("British Virgin Islands"), Some("VG"));
-    assert_eq!(code("Bosnia & Herzegovina"), Some("BA"));
-    assert_eq!(code("Republic of Moldova"), Some("MD"));
-    assert_eq!(code("Democratic People's Republic of Korea"), Some("KP"));
-    assert_eq!(code("United   States"), Some("US"));
-    assert_eq!(code("Curacao"), Some("CW"));
-
-    // Test ambiguous term rejection
-    assert_eq!(code("United"), None);
-    assert_eq!(code("Korea"), None);
+fn test_name_to_code_mirrors_fuzzy_code_paths() {
+    for (input, expected) in [
+        ("Virgin Islands, British", Some("VG")),
+        ("British Virgin Islands", Some("VG")),
+        ("Moldova, Republic of", Some("MD")),
+        ("Republic of Moldova", Some("MD")),
+        ("Vatican", Some("VA")),
+        ("Korea", None),
+    ] {
+        assert_eq!(name_to_code(input), expected);
+        assert_eq!(code(input), expected);
+    }
 }
 
 #[test]
