@@ -1,9 +1,6 @@
 name: Publish crate
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
   workflow_dispatch:
     inputs:
       dry-run:
@@ -16,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -36,11 +33,10 @@ jobs:
       - name: Cache Cargo artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Verify tag matches crate version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Read crate version
+        id: crate_version
         run: |
           set -euo pipefail
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
           CRATE_VERSION="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
 
           if [ -z "$CRATE_VERSION" ]; then
@@ -48,10 +44,7 @@ jobs:
             exit 1
           fi
 
-          if [ "$TAG_VERSION" != "$CRATE_VERSION" ]; then
-            echo "Tag version v$TAG_VERSION does not match crate version $CRATE_VERSION"
-            exit 1
-          fi
+          echo "crate_version=$CRATE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
         run: cargo test --locked --verbose
@@ -59,8 +52,15 @@ jobs:
       - name: Validate package
         run: cargo publish --locked --dry-run
 
+      - name: Workflow summary
+        run: |
+          echo "## Publish crate" >> "$GITHUB_STEP_SUMMARY"
+          echo "Version: ${{ steps.crate_version.outputs.crate_version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dry run: ${{ inputs['dry-run'] }}" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish to crates.io
-        if: github.event_name != 'workflow_dispatch' || !inputs['dry-run']
+        if: !inputs['dry-run']
         run: cargo publish --locked
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
