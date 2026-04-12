@@ -73,7 +73,6 @@ fn test_code_operations() {
 
     // Test ambiguous names - Congo actually matches CD (Democratic Republic of the Congo)
     assert_eq!(code("Congo"), Some("CD")); // Matches "Congo" exactly
-
 }
 
 #[test]
@@ -302,7 +301,12 @@ fn test_government_title_variations() {
 
 #[test]
 fn test_case_insensitivity_edge_cases() {
-    for variant in ["UNITED STATES", "united states", "United States", "UnItEd StAtEs"] {
+    for variant in [
+        "UNITED STATES",
+        "united states",
+        "United States",
+        "UnItEd StAtEs",
+    ] {
         assert_eq!(code(variant), Some("US"));
     }
 

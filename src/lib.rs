@@ -541,7 +541,11 @@ fn score_country(
     all_variants.iter().fold(
         calculate_similarity_score(normalized_input, input_words, primary_normalized),
         |best_score, variant| {
-            best_score.max(calculate_similarity_score(normalized_input, input_words, variant))
+            best_score.max(calculate_similarity_score(
+                normalized_input,
+                input_words,
+                variant,
+            ))
         },
     )
 }
@@ -569,7 +573,11 @@ fn best_fuzzy_match(normalized_input: &str, input_words: &[&str]) -> Option<(&'s
 
 #[inline]
 fn fuzzy_match_threshold(input_words: &[&str]) -> f32 {
-    if input_words.len() == 1 { 0.4 } else { 0.2 }
+    if input_words.len() == 1 {
+        0.4
+    } else {
+        0.2
+    }
 }
 
 pub(crate) fn code_to_flag_emoji(code: &str) -> String {
