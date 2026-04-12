@@ -59,7 +59,7 @@ jobs:
           echo "Dry run: ${{ inputs['dry-run'] }}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to crates.io
-        if: !inputs['dry-run']
+        if: ${{ !inputs['dry-run'] }}
         run: cargo publish --locked
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
