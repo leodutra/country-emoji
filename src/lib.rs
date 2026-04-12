@@ -122,8 +122,8 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>, WordCou
     // Explicit names use `insert` (overwrite), Derived use `or_insert` (no overwrite)
     // This ensures explicit names always take precedence, regardless of country order.
     for country in COUNTRIES.iter() {
-        let code = country_code(country);
-        let names = country_names(country);
+        let code = country.0;
+        let names = country.1;
         let country_index = normalized_countries.len();
 
         // Prepare normalized data
@@ -172,18 +172,6 @@ static COUNTRIES_NAME_MAP: Lazy<&HashMap<Arc<str>, &'static str>> = Lazy::new(||
 static NORMALIZED_COUNTRIES: Lazy<&Vec<NormalizedCountryData>> = Lazy::new(|| &COUNTRIES_DATA.1);
 
 static WORD_COUNTRY_INDEX: Lazy<&WordCountryIndex> = Lazy::new(|| &COUNTRIES_DATA.2);
-
-pub(crate) fn country_code(country: &Country) -> &'static str {
-    country.0
-}
-
-pub(crate) fn country_names(country: &Country) -> &'static [&'static str] {
-    country.1
-}
-
-pub(crate) fn country_name(country: &Country) -> &'static str {
-    country.1[0]
-}
 
 fn trim_upper(text: &str) -> String {
     text.trim().to_ascii_uppercase()
@@ -664,7 +652,7 @@ pub fn is_code(code: Option<&str>) -> bool {
 /// assert_eq!(code_to_name("ZZ"), None);  // Invalid code
 /// ```
 pub fn code_to_name(code: &str) -> Option<&'static str> {
-    get_by_code(code).map(country_name)
+    get_by_code(code).map(|country| country.1[0])
 }
 
 /// Convert an ISO 3166-1 alpha-2 country code to its flag emoji.
@@ -690,7 +678,7 @@ pub fn code_to_name(code: &str) -> Option<&'static str> {
 /// assert_eq!(code_to_flag("ZZ"), None);  // Invalid code
 /// ```
 pub fn code_to_flag(code: &str) -> Option<String> {
-    get_by_code(code).map(|country| code_to_flag_emoji(country_code(country)))
+    get_by_code(code).map(|country| code_to_flag_emoji(country.0))
 }
 
 /// Validate if a string represents a valid country flag emoji.
@@ -742,7 +730,7 @@ pub fn is_country_flag(flag: &str) -> bool {
 /// assert_eq!(flag_to_code("US"), None);   // Text, not emoji
 /// ```
 pub fn flag_to_code(flag: &str) -> Option<&'static str> {
-    get_by_flag(flag).map(country_code)
+    get_by_flag(flag).map(|country| country.0)
 }
 
 /// Convert a country name to its ISO 3166-1 alpha-2 code using fuzzy matching.
