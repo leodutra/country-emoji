@@ -47,7 +47,7 @@ jobs:
           echo "crate_version=$CRATE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
-        run: cargo test --locked --verbose
+        run: cargo test --verbose
 
       - name: Validate package
         run: cargo publish --dry-run
