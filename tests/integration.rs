@@ -310,16 +310,18 @@ fn test_government_title_variations() {
     // Test that government titles don't prevent matching
     // These are exact matches that should work
     assert_eq!(code("Russian Federation"), Some("RU"));
+    assert_eq!(code("Federal Republic of Germany"), Some("DE"));
+    assert_eq!(code("Republic of France"), Some("FR"));
+    assert_eq!(code("Kingdom of Spain"), Some("ES"));
+    assert_eq!(code("Commonwealth of Australia"), Some("AU"));
+    assert_eq!(code("Democratic Republic of Congo"), Some("CD"));
+
     // Check what the actual names are in the data:
     assert_eq!(code("Korea, Democratic People's Republic of"), Some("KP"));
     assert_eq!(code("Korea, Republic of"), Some("KR"));
-
-    // If enhanced matching is implemented, these should also work:
-    // assert_eq!(code("Democratic People's Republic of Korea"), Some("KP"));
-    // assert_eq!(code("Republic of Korea"), Some("KR"));
-    // assert_eq!(code("Republic of France"), Some("FR")); // Not an official name
-    // assert_eq!(code("Kingdom of Spain"), Some("ES")); // Not an official name
-    // assert_eq!(code("United States of America"), Some("US"));
+    assert_eq!(code("Democratic People's Republic of Korea"), Some("KP"));
+    assert_eq!(code("Republic of Korea"), Some("KR"));
+    assert_eq!(code("United States of America"), Some("US"));
 }
 
 #[test]

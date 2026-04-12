@@ -77,6 +77,7 @@ use unidecode::unidecode;
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
 const GOVERNMENT_PREFIXES: &[&str] = &[
     "the ",
+    "federal republic of ",
     "republic of ",
     "democratic republic of ",
     "people's republic of ",
@@ -143,6 +144,12 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>, WordCou
             // Explicit name - Force Insert (Overwrite derived if any)
             map.insert(normalized_arc, code);
 
+            if let Some(articleless_variant) = remove_articles(all_variants.last().unwrap().as_ref()) {
+                let articleless_arc: Arc<str> = Arc::from(articleless_variant.as_str());
+                map.entry(articleless_arc.clone()).or_insert(code);
+                index_variant_words(&mut word_index, &articleless_arc, country_index);
+            }
+
             // Add lowercased name to map
             map.insert(Arc::from(name.to_lowercase()), code);
 
@@ -188,14 +195,21 @@ fn normalize_text(text: &str) -> String {
         return String::new();
     }
 
-    let normalized = unidecode(trimmed).to_ascii_lowercase();
-    let bytes = normalized.as_bytes();
-    let mut result = String::with_capacity(normalized.len() + 8);
+    if trimmed.is_ascii() {
+        return normalize_ascii_text(trimmed.as_bytes());
+    }
+
+    let normalized = unidecode(trimmed);
+    normalize_ascii_text(normalized.as_bytes())
+}
+
+fn normalize_ascii_text(bytes: &[u8]) -> String {
+    let mut result = String::with_capacity(bytes.len() + 8);
     let mut index = 0;
     let mut pending_space = false;
 
     while index < bytes.len() {
-        let byte = bytes[index];
+        let byte = bytes[index].to_ascii_lowercase();
 
         if byte.is_ascii_whitespace() {
             pending_space = !result.is_empty();
@@ -247,6 +261,24 @@ fn normalize_text(text: &str) -> String {
     }
 
     result
+}
+
+fn remove_articles(text: &str) -> Option<String> {
+    if !text.contains(" the ") {
+        return None;
+    }
+
+    let articleless = text
+        .split_whitespace()
+        .filter(|word| *word != "the")
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if articleless == text {
+        None
+    } else {
+        Some(articleless)
+    }
 }
 
 fn strip_government_patterns(normalized: &str) -> Vec<String> {
