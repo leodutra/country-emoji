@@ -7,7 +7,7 @@ A lightweight, fast Rust library that converts between country names, ISO 3166-1
 
 ## Features
 
-- **⚡ Fast lookups** - Optimized for performance with pre-compiled regex patterns
+- **⚡ Fast lookups** - Optimized with precomputed lookup tables and a narrowed fuzzy-search fallback
 - **🧠 Fuzzy matching** - Handles alternative names, government titles, and formatting variations
 - **🌍 Comprehensive data** - All ISO 3166-1 countries including recent additions
 - **✨ Normalization** - Handles diacritics, case-insensitivity, whitespace, and abbreviations
@@ -106,8 +106,9 @@ assert_eq!(code("United"), None);  // ❓ Too vague
 
 This library is optimized for high performance:
 
-- **Pre-compiled regex patterns** for fast text normalization
+- **Precomputed lookup tables** for exact and normalized name matches
 - **Cached normalized data** to avoid repeated processing
+- **Candidate narrowing** so fuzzy matching only scores likely countries
 - **Early exit strategies** in matching algorithms
 - **Benchmarked** - Run `cargo bench` to see performance metrics
 

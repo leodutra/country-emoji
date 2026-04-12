@@ -5,7 +5,7 @@
 //!
 //! ## Features
 //!
-//! - ** Fast lookups** - Optimized for performance with pre-compiled regex patterns
+//! - ** Fast lookups** - Optimized with precomputed lookup tables and a narrowed fuzzy-search fallback
 //! - ** Fuzzy matching** - Handles alternative names, government titles, and formatting variations
 //! - ** Comprehensive data** - All ISO 3166-1 countries including recent additions
 //! - ** Normalization** - Handles diacritics, case-insensitivity, whitespace, and abbreviations
@@ -71,38 +71,36 @@
 mod countries;
 use countries::{COUNTRIES, COUNTRIES_CODE_MAP, COUNTRIES_FLAG_MAP};
 use once_cell::sync::Lazy;
-use regex::Regex;
 use std::collections::HashMap;
 use unidecode::unidecode;
 
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
-static SAINT_ST_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\b(st\.?\s+)").unwrap());
+const GOVERNMENT_PREFIXES: &[&str] = &[
+    "the ",
+    "republic of ",
+    "democratic republic of ",
+    "people's republic of ",
+    "kingdom of ",
+    "principality of ",
+    "federation of ",
+    "state of ",
+    "commonwealth of ",
+    "united states of ",
+    "islamic republic of ",
+    "socialist republic of ",
+];
 
-static AMPERSAND_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s*&\s*").unwrap());
+const GOVERNMENT_SUFFIXES: &[&str] = &[
+    " republic",
+    " federation",
+    " kingdom",
+    " islands",
+    " island",
+];
 
-static MULTIPLE_SPACES_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
-
-static GOVERNMENT_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
-    vec![
-        (Regex::new(r"^the\s+").unwrap(), ""),
-        (Regex::new(r"^republic\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^democratic\s+republic\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^people's\s+republic\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^kingdom\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^principality\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^federation\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^state\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^commonwealth\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^united\s+states\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^islamic\s+republic\s+of\s+").unwrap(), ""),
-        (Regex::new(r"^socialist\s+republic\s+of\s+").unwrap(), ""),
-        (Regex::new(r"\s+republic$").unwrap(), ""),
-        (Regex::new(r"\s+federation$").unwrap(), ""),
-        (Regex::new(r"\s+kingdom$").unwrap(), ""),
-        (Regex::new(r"\s+islands?$").unwrap(), ""),
-        (Regex::new(r"\s+island$").unwrap(), ""),
-    ]
-});
+const AMBIGUOUS_STRIPPED_TERMS: &[&str] = &[
+    "korea", "guinea", "congo", "virgin", "samoa", "sudan",
+];
 
 pub(crate) type Country = (&'static str, &'static [&'static str]);
 
@@ -111,10 +109,13 @@ use std::sync::Arc;
 type NormalizedCountryData = (Arc<str>, Vec<Arc<str>>, &'static str);
 
 type CountryNameMap = HashMap<Arc<str>, &'static str>;
+type WordCountryIndex = HashMap<Arc<str>, Vec<usize>>;
 
-static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>)> = Lazy::new(|| {
+static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>, WordCountryIndex)> =
+    Lazy::new(|| {
     let mut map: CountryNameMap = HashMap::new();
     let mut normalized_countries = Vec::with_capacity(COUNTRIES.len());
+    let mut word_index: WordCountryIndex = HashMap::new();
 
     // Single Pass: Insert explicit names, build normalized data, and insert derived variants
     // Explicit names use `insert` (overwrite), Derived use `or_insert` (no overwrite)
@@ -122,6 +123,7 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>)> = Lazy
     for country in COUNTRIES.iter() {
         let code = country_code(country);
         let names = country_names(country);
+        let country_index = normalized_countries.len();
 
         // Prepare normalized data
         let primary_normalized: Arc<str> = Arc::from(normalize_text(names[0]));
@@ -136,6 +138,7 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>)> = Lazy
 
             if !all_variants.contains(&normalized_arc) {
                 all_variants.push(normalized_arc.clone());
+                index_variant_words(&mut word_index, &normalized_arc, country_index);
             }
             // Explicit name - Force Insert (Overwrite derived if any)
             map.insert(normalized_arc, code);
@@ -144,20 +147,24 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>)> = Lazy
             map.insert(Arc::from(name.to_lowercase()), code);
 
             // Derived variants - Only Insert if Missing
-            for variant in strip_government_patterns(name) {
-                map.entry(Arc::from(variant)).or_insert(code);
+            for variant in strip_government_patterns(all_variants.last().unwrap().as_ref()) {
+                let variant_arc: Arc<str> = Arc::from(variant.as_str());
+                map.entry(variant_arc.clone()).or_insert(code);
+                index_variant_words(&mut word_index, &variant_arc, country_index);
             }
         }
 
         normalized_countries.push((primary_normalized, all_variants, code));
     }
 
-    (map, normalized_countries)
+    (map, normalized_countries, word_index)
 });
 
 static COUNTRIES_NAME_MAP: Lazy<&HashMap<Arc<str>, &'static str>> = Lazy::new(|| &COUNTRIES_DATA.0);
 
 static NORMALIZED_COUNTRIES: Lazy<&Vec<NormalizedCountryData>> = Lazy::new(|| &COUNTRIES_DATA.1);
+
+static WORD_COUNTRY_INDEX: Lazy<&WordCountryIndex> = Lazy::new(|| &COUNTRIES_DATA.2);
 
 pub(crate) fn country_code(country: &Country) -> &'static str {
     country.0
@@ -172,7 +179,7 @@ pub(crate) fn country_name(country: &Country) -> &'static str {
 }
 
 fn trim_upper(text: &str) -> String {
-    text.trim().to_uppercase()
+    text.trim().to_ascii_uppercase()
 }
 
 fn normalize_text(text: &str) -> String {
@@ -181,23 +188,69 @@ fn normalize_text(text: &str) -> String {
         return String::new();
     }
 
-    let mut normalized = unidecode(trimmed).to_lowercase();
-    normalized = AMPERSAND_REGEX
-        .replace_all(&normalized, " and ")
-        .into_owned();
-    normalized = SAINT_ST_REGEX
-        .replace_all(&normalized, "saint ")
-        .into_owned();
-    normalized = MULTIPLE_SPACES_REGEX
-        .replace_all(&normalized, " ")
-        .into_owned();
+    let normalized = unidecode(trimmed).to_ascii_lowercase();
+    let bytes = normalized.as_bytes();
+    let mut result = String::with_capacity(normalized.len() + 8);
+    let mut index = 0;
+    let mut pending_space = false;
 
-    normalized.trim().to_string()
+    while index < bytes.len() {
+        let byte = bytes[index];
+
+        if byte.is_ascii_whitespace() {
+            pending_space = !result.is_empty();
+            index += 1;
+            continue;
+        }
+
+        let at_word_boundary = index == 0 || !bytes[index - 1].is_ascii_alphanumeric();
+        if at_word_boundary && byte == b's' && index + 1 < bytes.len() && bytes[index + 1] == b't' {
+            let mut next = index + 2;
+            if next < bytes.len() && bytes[next] == b'.' {
+                next += 1;
+            }
+
+            if next < bytes.len() && bytes[next].is_ascii_whitespace() {
+                if pending_space && !result.is_empty() {
+                    result.push(' ');
+                }
+                result.push_str("saint");
+                pending_space = true;
+                while next < bytes.len() && bytes[next].is_ascii_whitespace() {
+                    next += 1;
+                }
+                index = next;
+                continue;
+            }
+        }
+
+        if byte == b'&' {
+            if !result.is_empty() && !result.ends_with(' ') {
+                result.push(' ');
+            }
+            result.push_str("and");
+            pending_space = true;
+            index += 1;
+            while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+                index += 1;
+            }
+            continue;
+        }
+
+        if pending_space && !result.is_empty() {
+            result.push(' ');
+        }
+
+        result.push(byte as char);
+        pending_space = false;
+        index += 1;
+    }
+
+    result
 }
 
-fn strip_government_patterns(text: &str) -> Vec<String> {
-    let normalized = normalize_text(text);
-    let mut variants = vec![normalized.clone()];
+fn strip_government_patterns(normalized: &str) -> Vec<String> {
+    let mut variants = vec![normalized.to_string()];
 
     if normalized.contains(',') {
         let mut name_parts: Vec<&str> = normalized.split(", ").collect();
@@ -228,23 +281,63 @@ fn strip_government_patterns(text: &str) -> Vec<String> {
 fn strip_government_patterns_internal(text: &str) -> Vec<String> {
     let mut variants = Vec::new();
 
-    let ambiguous_terms = ["korea", "guinea", "congo", "virgin", "samoa", "sudan"];
-    for (regex, replacement) in GOVERNMENT_PATTERNS.iter() {
-        let stripped = regex.replace_all(text, *replacement).trim().to_string();
-        let stripped_lower = stripped.to_lowercase();
+    for prefix in GOVERNMENT_PREFIXES {
+        if let Some(stripped) = text.strip_prefix(prefix) {
+            push_variant_if_valid(&mut variants, stripped.trim(), text);
+        }
+    }
 
-        if !stripped.is_empty()
-            && stripped != text
-            && !variants.contains(&stripped)
-            && stripped.len() >= 4
-            && !is_too_generic(&stripped_lower)
-            && !ambiguous_terms.contains(&stripped_lower.as_str())
-        {
-            variants.push(stripped);
+    for suffix in GOVERNMENT_SUFFIXES {
+        if let Some(stripped) = text.strip_suffix(suffix) {
+            push_variant_if_valid(&mut variants, stripped.trim(), text);
         }
     }
 
     variants
+}
+
+fn push_variant_if_valid(variants: &mut Vec<String>, stripped: &str, original: &str) {
+    if stripped.is_empty()
+        || stripped == original
+        || stripped.len() < 4
+        || is_too_generic(stripped)
+        || AMBIGUOUS_STRIPPED_TERMS.contains(&stripped)
+        || variants.iter().any(|variant| variant == stripped)
+    {
+        return;
+    }
+
+    variants.push(stripped.to_string());
+}
+
+fn index_variant_words(word_index: &mut WordCountryIndex, variant: &Arc<str>, country_index: usize) {
+    for word in variant.split_whitespace().filter(|word| !is_too_generic(word)) {
+        let entry = word_index.entry(Arc::from(word)).or_default();
+        if !entry.contains(&country_index) {
+            entry.push(country_index);
+        }
+    }
+}
+
+fn collect_candidate_countries(input_words: &[&str]) -> Option<Vec<usize>> {
+    let mut seen = vec![false; NORMALIZED_COUNTRIES.len()];
+    let mut candidates = Vec::new();
+
+    for word in input_words.iter().copied().filter(|word| !is_too_generic(word)) {
+        let indices = WORD_COUNTRY_INDEX.get(word)?;
+        for &country_index in indices.iter() {
+            if !seen[country_index] {
+                seen[country_index] = true;
+                candidates.push(country_index);
+            }
+        }
+    }
+
+    if candidates.is_empty() {
+        None
+    } else {
+        Some(candidates)
+    }
 }
 
 fn is_too_generic(word: &str) -> bool {
@@ -441,9 +534,14 @@ pub fn code(input: &str) -> Option<&'static str> {
 /// assert_eq!(flag("Atlantis"), None);
 /// ```
 pub fn flag(mut input: &str) -> Option<String> {
+    if let Some(flag) = code_to_flag(input) {
+        return Some(flag);
+    }
+
     if let Some(code) = name_to_code(input) {
         input = code;
     }
+
     code_to_flag(input)
 }
 
@@ -478,6 +576,10 @@ pub fn flag(mut input: &str) -> Option<String> {
 /// assert_eq!(name("🏳️"), None);  // Not a country flag
 /// ```
 pub fn name(mut input: &str) -> Option<&'static str> {
+    if let Some(country_name) = code_to_name(input) {
+        return Some(country_name);
+    }
+
     if let Some(code) = flag_to_code(input) {
         input = code;
     }
@@ -682,7 +784,7 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
     }
 
     // Optimization: pattern matching on input
-    for variant in strip_government_patterns(trimmed_input) {
+    for variant in strip_government_patterns(normalized_input.as_str()) {
         if let Some(&code) = COUNTRIES_NAME_MAP.get(variant.as_str()) {
             return Some(code);
         }
@@ -694,10 +796,15 @@ pub fn name_to_code(name: &str) -> Option<&'static str> {
     if all_generic && !input_words.is_empty() {
         return None;
     }
+
+    let candidate_indices = collect_candidate_countries(&input_words)
+        .unwrap_or_else(|| (0..NORMALIZED_COUNTRIES.len()).collect());
+
     let mut best_match: Option<(&'static str, f32)> = None;
     let mut best_score = 0.0f32;
 
-    for (primary_normalized, all_variants, code) in NORMALIZED_COUNTRIES.iter() {
+    for country_index in candidate_indices {
+        let (primary_normalized, all_variants, code) = &NORMALIZED_COUNTRIES[country_index];
         if best_score >= 1.0 {
             break;
         }
