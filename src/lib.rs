@@ -1,66 +1,68 @@
 //! # country-emoji
 //!
-//! A lightweight, fast Rust library for converting between country names, ISO 3166-1 codes, and flag emojis.
-//! Features intelligent fuzzy matching, normalization, and comprehensive country data.
+//! country-emoji provides conversions between country names, ISO 3166-1 alpha-2 codes,
+//! and Unicode flag emojis.
+//!
+//! The crate supports exact lookups by code or flag emoji, plus alias-aware and normalized
+//! matching for country names.
 //!
 //! ## Features
 //!
-//! - ** Fast lookups** - Optimized with precomputed lookup tables and a narrowed fuzzy-search fallback
-//! - ** Fuzzy matching** - Handles alternative names, government titles, and formatting variations
-//! - ** Comprehensive data** - All ISO 3166-1 countries including recent additions
-//! - ** Normalization** - Handles diacritics, case-insensitivity, whitespace, and abbreviations
-//! - ** Bidirectional conversion** - Convert between any combination of codes, names, and flag emojis
-//! - ** Zero-copy** - Returns string slices where possible for optimal memory usage
+//! - Exact lookups backed by precomputed tables for codes, flags, and normalized names
+//! - Country-name normalization for case, whitespace, diacritics, and common abbreviations
+//! - Alias, formal-name, and fuzzy matching for text input
+//! - Bidirectional conversions between names, ISO codes, and flag emojis
+//! - Borrowed string returns for code and name APIs where possible
 //!
 //! ## Quick Start
 //!
 //! ```rust
-//! use country_emoji::{flag, code, name};
+//! use country_emoji::{code, flag, name};
 //!
-//! // Convert country code to flag emoji
+//! // Convert a country code to a flag emoji.
 //! assert_eq!(flag("US"), Some("🇺🇸".to_string()));
 //!
-//! // Convert flag emoji to country code
+//! // Convert a flag emoji to a country code.
 //! assert_eq!(code("🇨🇦"), Some("CA"));
 //!
-//! // Convert country code to name
+//! // Convert a country code to a display name.
 //! assert_eq!(name("DE"), Some("Germany"));
 //!
-//! // Convert country name to code (with fuzzy matching)
+//! // Convert a country name to a code.
 //! assert_eq!(code("United Kingdom"), Some("GB"));
-//! assert_eq!(code("UAE"), Some("AE"));  // Handles abbreviations
+//! assert_eq!(code("UAE"), Some("AE"));
 //! ```
 //!
-//! ## Advanced Fuzzy Matching
+//! ## Name Matching
 //!
-//! The library intelligently handles various name formats and variations:
+//! Text lookups support several normalized and alias-based variations:
 //!
 //! ```rust
 //! use country_emoji::code;
 //!
-//! // Government titles and formal names
+//! // Formal names and government titles.
 //! assert_eq!(code("Republic of Korea"), Some("KR"));
 //! assert_eq!(code("United States of America"), Some("US"));
 //!
-//! // Saint/St. normalization
+//! // Saint/St. normalization.
 //! assert_eq!(code("Saint Lucia"), Some("LC"));
 //! assert_eq!(code("St. Lucia"), Some("LC"));
 //!
-//! // Diacritic handling
+//! // Diacritic handling.
 //! assert_eq!(code("Cote d'Ivoire"), Some("CI"));
 //! assert_eq!(code("Côte d'Ivoire"), Some("CI"));
 //!
-//! // And/ampersand equivalence
+//! // And/ampersand equivalence.
 //! assert_eq!(code("Bosnia and Herzegovina"), Some("BA"));
 //! assert_eq!(code("Bosnia & Herzegovina"), Some("BA"));
 //! ```
 //!
-//! ## Direct API Functions
+//! ## Explicit Conversion APIs
 //!
-//! For explicit conversions when you know the input type:
+//! When the input type is already known, use the direct conversion functions:
 //!
 //! ```rust
-//! use country_emoji::{code_to_flag, flag_to_code, name_to_code, code_to_name};
+//! use country_emoji::{code_to_flag, code_to_name, flag_to_code, name_to_code};
 //!
 //! assert_eq!(code_to_flag("FR"), Some("🇫🇷".to_string()));
 //! assert_eq!(flag_to_code("🇮🇹"), Some("IT"));
@@ -99,9 +101,7 @@ const GOVERNMENT_SUFFIXES: &[&str] = &[
     " island",
 ];
 
-const AMBIGUOUS_STRIPPED_TERMS: &[&str] = &[
-    "korea", "guinea", "congo", "virgin", "samoa", "sudan",
-];
+const AMBIGUOUS_STRIPPED_TERMS: &[&str] = &["korea", "guinea", "congo", "virgin", "samoa", "sudan"];
 
 pub(crate) type Country = (&'static str, &'static [&'static str]);
 
@@ -114,58 +114,60 @@ type WordCountryIndex = HashMap<Arc<str>, Vec<usize>>;
 
 static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>, WordCountryIndex)> =
     Lazy::new(|| {
-    let mut map: CountryNameMap = HashMap::new();
-    let mut normalized_countries = Vec::with_capacity(COUNTRIES.len());
-    let mut word_index: WordCountryIndex = HashMap::new();
+        let mut map: CountryNameMap = HashMap::new();
+        let mut normalized_countries = Vec::with_capacity(COUNTRIES.len());
+        let mut word_index: WordCountryIndex = HashMap::new();
 
-    // Single Pass: Insert explicit names, build normalized data, and insert derived variants
-    // Explicit names use `insert` (overwrite), Derived use `or_insert` (no overwrite)
-    // This ensures explicit names always take precedence, regardless of country order.
-    for country in COUNTRIES.iter() {
-        let code = country.0;
-        let names = country.1;
-        let country_index = normalized_countries.len();
+        // Single Pass: Insert explicit names, build normalized data, and insert derived variants
+        // Explicit names use `insert` (overwrite), Derived use `or_insert` (no overwrite)
+        // This ensures explicit names always take precedence, regardless of country order.
+        for country in COUNTRIES.iter() {
+            let code = country.0;
+            let names = country.1;
+            let country_index = normalized_countries.len();
 
-        // Prepare normalized data
-        let primary_normalized: Arc<str> = Arc::from(normalize_text(names[0]));
+            // Prepare normalized data
+            let primary_normalized: Arc<str> = Arc::from(normalize_text(names[0]));
 
-        // Note: We insert primary_normalized in the loop below as well, but we need the Arcs
-        // for the normalized_countries vector.
+            // Note: We insert primary_normalized in the loop below as well, but we need the Arcs
+            // for the normalized_countries vector.
 
-        let mut all_variants = Vec::new();
-        for name in names {
-            let normalized_name = normalize_text(name);
-            let normalized_arc: Arc<str> = Arc::from(normalized_name);
+            let mut all_variants = Vec::new();
+            for name in names {
+                let normalized_name = normalize_text(name);
+                let normalized_arc: Arc<str> = Arc::from(normalized_name);
 
-            if !all_variants.contains(&normalized_arc) {
-                all_variants.push(normalized_arc.clone());
-                index_variant_words(&mut word_index, &normalized_arc, country_index);
+                if !all_variants.contains(&normalized_arc) {
+                    all_variants.push(normalized_arc.clone());
+                    index_variant_words(&mut word_index, &normalized_arc, country_index);
+                }
+                // Explicit name - Force Insert (Overwrite derived if any)
+                map.insert(normalized_arc, code);
+
+                if let Some(articleless_variant) =
+                    remove_articles(all_variants.last().unwrap().as_ref())
+                {
+                    let articleless_arc: Arc<str> = Arc::from(articleless_variant.as_str());
+                    map.entry(articleless_arc.clone()).or_insert(code);
+                    index_variant_words(&mut word_index, &articleless_arc, country_index);
+                }
+
+                // Add lowercased name to map
+                map.insert(Arc::from(name.to_lowercase()), code);
+
+                // Derived variants - Only Insert if Missing
+                for variant in strip_government_patterns(all_variants.last().unwrap().as_ref()) {
+                    let variant_arc: Arc<str> = Arc::from(variant.as_str());
+                    map.entry(variant_arc.clone()).or_insert(code);
+                    index_variant_words(&mut word_index, &variant_arc, country_index);
+                }
             }
-            // Explicit name - Force Insert (Overwrite derived if any)
-            map.insert(normalized_arc, code);
 
-            if let Some(articleless_variant) = remove_articles(all_variants.last().unwrap().as_ref()) {
-                let articleless_arc: Arc<str> = Arc::from(articleless_variant.as_str());
-                map.entry(articleless_arc.clone()).or_insert(code);
-                index_variant_words(&mut word_index, &articleless_arc, country_index);
-            }
-
-            // Add lowercased name to map
-            map.insert(Arc::from(name.to_lowercase()), code);
-
-            // Derived variants - Only Insert if Missing
-            for variant in strip_government_patterns(all_variants.last().unwrap().as_ref()) {
-                let variant_arc: Arc<str> = Arc::from(variant.as_str());
-                map.entry(variant_arc.clone()).or_insert(code);
-                index_variant_words(&mut word_index, &variant_arc, country_index);
-            }
+            normalized_countries.push((primary_normalized, all_variants, code));
         }
 
-        normalized_countries.push((primary_normalized, all_variants, code));
-    }
-
-    (map, normalized_countries, word_index)
-});
+        (map, normalized_countries, word_index)
+    });
 
 static COUNTRIES_NAME_MAP: Lazy<&HashMap<Arc<str>, &'static str>> = Lazy::new(|| &COUNTRIES_DATA.0);
 
@@ -288,7 +290,7 @@ fn strip_government_patterns(normalized: &str) -> Vec<String> {
         }
     }
 
-    let pattern_variants = strip_government_patterns_internal(&normalized);
+    let pattern_variants = strip_government_patterns_internal(normalized);
     for variant in pattern_variants {
         if !variants.contains(&variant) {
             variants.push(variant);
@@ -330,8 +332,15 @@ fn push_variant_if_valid(variants: &mut Vec<String>, stripped: &str, original: &
     variants.push(stripped.to_string());
 }
 
-fn index_variant_words(word_index: &mut WordCountryIndex, variant: &Arc<str>, country_index: usize) {
-    for word in variant.split_whitespace().filter(|word| !is_too_generic(word)) {
+fn index_variant_words(
+    word_index: &mut WordCountryIndex,
+    variant: &Arc<str>,
+    country_index: usize,
+) {
+    for word in variant
+        .split_whitespace()
+        .filter(|word| !is_too_generic(word))
+    {
         let entry = word_index.entry(Arc::from(word)).or_default();
         if !entry.contains(&country_index) {
             entry.push(country_index);
@@ -343,7 +352,11 @@ fn collect_candidate_countries(input_words: &[&str]) -> Option<Vec<usize>> {
     let mut seen = vec![false; NORMALIZED_COUNTRIES.len()];
     let mut candidates = Vec::new();
 
-    for word in input_words.iter().copied().filter(|word| !is_too_generic(word)) {
+    for word in input_words
+        .iter()
+        .copied()
+        .filter(|word| !is_too_generic(word))
+    {
         let indices = WORD_COUNTRY_INDEX.get(word)?;
         for &country_index in indices.iter() {
             if !seen[country_index] {
@@ -481,17 +494,17 @@ fn get_by_flag(flag: &str) -> Option<&Country> {
     COUNTRIES_FLAG_MAP.get(flag.trim()).copied()
 }
 
-/// Convert a flag emoji or country name to its ISO 3166-1 alpha-2 code.
+/// Resolves a flag emoji or country-like text to an ISO 3166-1 alpha-2 code.
 ///
-/// This is the primary lookup function that accepts both flag emojis and country names,
-/// including alternative names, government titles, and various text formats.
-/// Uses intelligent fuzzy matching to handle variations in naming conventions.
+/// This is the primary lookup entry point. Text input is matched case-insensitively and
+/// may resolve through aliases, normalized forms, or fuzzy matching.
 ///
 /// # Arguments
-/// * `input` - A flag emoji (🇨🇦) or country name ("Canada", "UK", "United States of America")
+/// * `input` - A flag emoji or country-like text such as `"Canada"`, `"UK"`, or
+///   `"United States of America"`
 ///
 /// # Returns
-/// * `Some(&str)` - The ISO 3166-1 alpha-2 country code if found
+/// * `Some(&str)` - The resolved ISO 3166-1 alpha-2 code
 /// * `None` - If the input is invalid, ambiguous, or not found
 ///
 /// # Examples
@@ -499,40 +512,41 @@ fn get_by_flag(flag: &str) -> Option<&Country> {
 /// ```
 /// use country_emoji::code;
 ///
-/// // Flag emoji to code
+/// // Flag emoji to code.
 /// assert_eq!(code("🇨🇦"), Some("CA"));
 /// assert_eq!(code("🇺🇸"), Some("US"));
 ///
-/// // Country names to codes
+/// // Country names to codes.
 /// assert_eq!(code("Canada"), Some("CA"));
 /// assert_eq!(code("United States"), Some("US"));
 ///
-/// // Alternative names and abbreviations
+/// // Alternative names and abbreviations.
 /// assert_eq!(code("UK"), Some("GB"));
 /// assert_eq!(code("UAE"), Some("AE"));
 ///
-/// // Government titles and formal names
+/// // Formal names.
 /// assert_eq!(code("Republic of Korea"), Some("KR"));
 /// assert_eq!(code("United States of America"), Some("US"));
 ///
-/// // Invalid or ambiguous inputs
-/// assert_eq!(code("ZZ"), None);  // Invalid code
-/// assert_eq!(code("Korea"), None);  // Ambiguous (North or South?)
+/// // Invalid or ambiguous inputs.
+/// assert_eq!(code("ZZ"), None);
+/// assert_eq!(code("Korea"), None);
 /// ```
 pub fn code(input: &str) -> Option<&'static str> {
     flag_to_code(input).or_else(|| name_to_code(input))
 }
 
-/// Convert a country code or name to its flag emoji.
+/// Resolves a country code or country-like text to a Unicode flag emoji.
 ///
-/// Accepts both ISO 3166-1 alpha-2 codes and country names (including alternative names).
-/// Returns the corresponding Unicode flag emoji as a String.
+/// Country codes are handled directly. Other text inputs are first resolved through
+/// [`name_to_code`] and then converted to a flag emoji.
 ///
 /// # Arguments
-/// * `input` - An ISO country code ("US") or country name ("United States")
+/// * `input` - An ISO country code such as `"US"` or a country name such as
+///   `"United States"`
 ///
 /// # Returns
-/// * `Some(String)` - The Unicode flag emoji if the country is found
+/// * `Some(String)` - The resolved Unicode flag emoji
 /// * `None` - If the input is invalid or not found
 ///
 /// # Examples
@@ -540,16 +554,16 @@ pub fn code(input: &str) -> Option<&'static str> {
 /// ```
 /// use country_emoji::flag;
 ///
-/// // Country codes to flags
+/// // Country codes to flags.
 /// assert_eq!(flag("US"), Some("🇺🇸".to_string()));
 /// assert_eq!(flag("CL"), Some("🇨🇱".to_string()));
 ///
-/// // Country names to flags (with fuzzy matching)
+/// // Country names to flags.
 /// assert_eq!(flag("Chile"), Some("🇨🇱".to_string()));
 /// assert_eq!(flag("United Kingdom"), Some("🇬🇧".to_string()));
 /// assert_eq!(flag("UAE"), Some("🇦🇪".to_string()));
 ///
-/// // Invalid inputs
+/// // Invalid inputs.
 /// assert_eq!(flag("XX"), None);
 /// assert_eq!(flag("Atlantis"), None);
 /// ```
@@ -565,16 +579,16 @@ pub fn flag(mut input: &str) -> Option<String> {
     code_to_flag(input)
 }
 
-/// Convert a flag emoji or country code to its official country name.
+/// Resolves a flag emoji or ISO 3166-1 alpha-2 code to the preferred country name.
 ///
-/// Returns the primary English name for a country given either its flag emoji
-/// or ISO 3166-1 alpha-2 code.
+/// This function does not perform general name matching. If you need to resolve arbitrary
+/// country text first, use [`code`] or [`name_to_code`].
 ///
 /// # Arguments
-/// * `input` - A flag emoji ("🇶🇦") or ISO country code ("QA")
+/// * `input` - A flag emoji such as `"🇶🇦"` or an ISO country code such as `"QA"`
 ///
 /// # Returns
-/// * `Some(&str)` - The official country name if found
+/// * `Some(&str)` - The preferred country name
 /// * `None` - If the input is invalid or not found
 ///
 /// # Examples
@@ -582,18 +596,18 @@ pub fn flag(mut input: &str) -> Option<String> {
 /// ```
 /// use country_emoji::name;
 ///
-/// // Flag emoji to name
+/// // Flag emoji to name.
 /// assert_eq!(name("🇶🇦"), Some("Qatar"));
 /// assert_eq!(name("🇨🇦"), Some("Canada"));
 ///
-/// // Country code to name
+/// // Country code to name.
 /// assert_eq!(name("QA"), Some("Qatar"));
 /// assert_eq!(name("CA"), Some("Canada"));
 /// assert_eq!(name("GB"), Some("United Kingdom"));
 ///
-/// // Invalid inputs
+/// // Invalid inputs.
 /// assert_eq!(name("XX"), None);
-/// assert_eq!(name("🏳️"), None);  // Not a country flag
+/// assert_eq!(name("🏳️"), None);
 /// ```
 pub fn name(mut input: &str) -> Option<&'static str> {
     if let Some(country_name) = code_to_name(input) {
@@ -606,13 +620,13 @@ pub fn name(mut input: &str) -> Option<&'static str> {
     code_to_name(input)
 }
 
-/// Validate if an optional string is a valid ISO 3166-1 alpha-2 country code.
+/// Returns whether an optional string is a valid ISO 3166-1 alpha-2 country code.
 ///
 /// # Arguments
 /// * `code` - An optional string slice that may contain a country code
 ///
 /// # Returns
-/// * `true` - If the code is Some and represents a valid country code
+/// * `true` - If `code` is `Some` and resolves to a known country code
 /// * `false` - If the code is None or invalid
 ///
 /// # Examples
@@ -620,25 +634,24 @@ pub fn name(mut input: &str) -> Option<&'static str> {
 /// ```
 /// use country_emoji::is_code;
 ///
-/// assert!(is_code(Some("US")));   // Valid country code
-/// assert!(is_code(Some("CA")));   // Valid country code
-/// assert!(!is_code(Some("ZZ")));  // Invalid country code
-/// assert!(!is_code(None));        // None input
+/// assert!(is_code(Some("US")));
+/// assert!(is_code(Some("CA")));
+/// assert!(!is_code(Some("ZZ")));
+/// assert!(!is_code(None));
 /// ```
 pub fn is_code(code: Option<&str>) -> bool {
     code.is_some_and(check_by_code)
 }
 
-/// Convert an ISO 3166-1 alpha-2 country code to its official name.
+/// Converts an ISO 3166-1 alpha-2 country code to the preferred country name.
 ///
-/// Direct conversion function that only accepts country codes, not names or flags.
-/// For more flexible input handling, use [`name`] instead.
+/// This function only accepts country codes. Use [`name`] if the input may be a flag emoji.
 ///
 /// # Arguments
 /// * `code` - An ISO 3166-1 alpha-2 country code (case-insensitive)
 ///
 /// # Returns
-/// * `Some(&str)` - The official country name if the code is valid
+/// * `Some(&str)` - The preferred country name
 /// * `None` - If the code is invalid or not found
 ///
 /// # Examples
@@ -647,24 +660,23 @@ pub fn is_code(code: Option<&str>) -> bool {
 /// use country_emoji::code_to_name;
 ///
 /// assert_eq!(code_to_name("US"), Some("United States"));
-/// assert_eq!(code_to_name("gb"), Some("United Kingdom"));  // Case insensitive
+/// assert_eq!(code_to_name("gb"), Some("United Kingdom"));
 /// assert_eq!(code_to_name("DE"), Some("Germany"));
-/// assert_eq!(code_to_name("ZZ"), None);  // Invalid code
+/// assert_eq!(code_to_name("ZZ"), None);
 /// ```
 pub fn code_to_name(code: &str) -> Option<&'static str> {
     get_by_code(code).map(|country| country.1[0])
 }
 
-/// Convert an ISO 3166-1 alpha-2 country code to its flag emoji.
+/// Converts an ISO 3166-1 alpha-2 country code to its flag emoji.
 ///
-/// Direct conversion function that only accepts country codes, not names or flags.
-/// For more flexible input handling, use [`flag`] instead.
+/// This function only accepts country codes. Use [`flag`] if the input may be a country name.
 ///
 /// # Arguments
 /// * `code` - An ISO 3166-1 alpha-2 country code (case-insensitive)
 ///
 /// # Returns
-/// * `Some(String)` - The Unicode flag emoji if the code is valid
+/// * `Some(String)` - The corresponding Unicode flag emoji
 /// * `None` - If the code is invalid or not found
 ///
 /// # Examples
@@ -673,18 +685,18 @@ pub fn code_to_name(code: &str) -> Option<&'static str> {
 /// use country_emoji::code_to_flag;
 ///
 /// assert_eq!(code_to_flag("FR"), Some("🇫🇷".to_string()));
-/// assert_eq!(code_to_flag("jp"), Some("🇯🇵".to_string()));  // Case insensitive
+/// assert_eq!(code_to_flag("jp"), Some("🇯🇵".to_string()));
 /// assert_eq!(code_to_flag("BR"), Some("🇧🇷".to_string()));
-/// assert_eq!(code_to_flag("ZZ"), None);  // Invalid code
+/// assert_eq!(code_to_flag("ZZ"), None);
 /// ```
 pub fn code_to_flag(code: &str) -> Option<String> {
     get_by_code(code).map(|country| code_to_flag_emoji(country.0))
 }
 
-/// Validate if a string represents a valid country flag emoji.
+/// Returns whether a string is a valid country flag emoji.
 ///
 /// # Arguments
-/// * `flag` - A string that may contain a Unicode flag emoji
+/// * `flag` - A string that may contain a Unicode country flag emoji
 ///
 /// # Returns
 /// * `true` - If the input is a valid country flag emoji
@@ -695,27 +707,26 @@ pub fn code_to_flag(code: &str) -> Option<String> {
 /// ```
 /// use country_emoji::is_country_flag;
 ///
-/// assert!(is_country_flag("🇺🇸"));   // US flag
-/// assert!(is_country_flag("🇨🇦"));   // Canada flag
-/// assert!(is_country_flag("🇬🇧"));   // UK flag
-/// assert!(!is_country_flag("🏳️"));   // White flag (not a country)
-/// assert!(!is_country_flag("US"));   // Text, not emoji
-/// assert!(!is_country_flag("🎌"));   // Japanese flag (not country flag emoji)
+/// assert!(is_country_flag("🇺🇸"));
+/// assert!(is_country_flag("🇨🇦"));
+/// assert!(is_country_flag("🇬🇧"));
+/// assert!(!is_country_flag("🏳️"));
+/// assert!(!is_country_flag("US"));
+/// assert!(!is_country_flag("🎌"));
 /// ```
 pub fn is_country_flag(flag: &str) -> bool {
     check_by_flag(flag)
 }
 
-/// Convert a country flag emoji to its ISO 3166-1 alpha-2 code.
+/// Converts a country flag emoji to its ISO 3166-1 alpha-2 code.
 ///
-/// Direct conversion function that only accepts flag emojis, not names or codes.
-/// For more flexible input handling, use [`code`] instead.
+/// This function only accepts flag emojis. Use [`code`] if the input may be country text.
 ///
 /// # Arguments
 /// * `flag` - A Unicode country flag emoji
 ///
 /// # Returns
-/// * `Some(&str)` - The ISO 3166-1 alpha-2 country code if the flag is valid
+/// * `Some(&str)` - The corresponding ISO 3166-1 alpha-2 country code
 /// * `None` - If the flag is invalid or not a country flag
 ///
 /// # Examples
@@ -726,33 +737,33 @@ pub fn is_country_flag(flag: &str) -> bool {
 /// assert_eq!(flag_to_code("🇺🇸"), Some("US"));
 /// assert_eq!(flag_to_code("🇨🇦"), Some("CA"));
 /// assert_eq!(flag_to_code("🇬🇧"), Some("GB"));
-/// assert_eq!(flag_to_code("🏳️"), None);   // Not a country flag
-/// assert_eq!(flag_to_code("US"), None);   // Text, not emoji
+/// assert_eq!(flag_to_code("🏳️"), None);
+/// assert_eq!(flag_to_code("US"), None);
 /// ```
 pub fn flag_to_code(flag: &str) -> Option<&'static str> {
     get_by_flag(flag).map(|country| country.0)
 }
 
-/// Convert a country name to its ISO 3166-1 alpha-2 code using fuzzy matching.
+/// Resolves country-like text to an ISO 3166-1 alpha-2 code.
 ///
-/// This function performs intelligent fuzzy matching to handle various name formats,
-/// including alternative names, government titles, diacritic variations, and
-/// different naming conventions. It's the most flexible name-to-code conversion function.
+/// Text input is matched case-insensitively and may resolve through exact matches,
+/// normalized variants, aliases, or fuzzy matching.
 ///
 /// # Supported Name Variations
-/// - Official names: "United States", "United Kingdom"
-/// - Alternative names: "USA", "UK", "UAE"
-/// - Government titles: "Republic of Korea", "United States of America"
-/// - Comma-reversed: "Virgin Islands, British", "Korea, Republic of"
-/// - Saint/St. variations: "Saint Lucia", "St. Lucia", "St Lucia"
-/// - Diacritic handling: "Cote d'Ivoire" ↔ "Côte d'Ivoire"
-/// - And/ampersand: "Bosnia and Herzegovina" ↔ "Bosnia & Herzegovina"
+/// - Official names such as `"United States"` and `"United Kingdom"`
+/// - Common aliases such as `"USA"`, `"UK"`, and `"UAE"`
+/// - Formal names such as `"Republic of Korea"` and `"United States of America"`
+/// - Comma-reversed names such as `"Virgin Islands, British"`
+/// - Saint/St. variations such as `"Saint Lucia"`, `"St. Lucia"`, and `"St Lucia"`
+/// - Diacritic-insensitive matches such as `"Cote d'Ivoire"` and `"Côte d'Ivoire"`
+/// - `and`/`&` normalization such as `"Bosnia and Herzegovina"` and
+///   `"Bosnia & Herzegovina"`
 ///
 /// # Arguments
-/// * `name` - A country name in various formats (case-insensitive)
+/// * `name` - Country-like text in one of the supported formats
 ///
 /// # Returns
-/// * `Some(&str)` - The ISO 3166-1 alpha-2 country code if found
+/// * `Some(&str)` - The resolved ISO 3166-1 alpha-2 country code
 /// * `None` - If the name is invalid, too ambiguous, or not found
 ///
 /// # Examples
@@ -760,31 +771,31 @@ pub fn flag_to_code(flag: &str) -> Option<&'static str> {
 /// ```
 /// use country_emoji::name_to_code;
 ///
-/// // Official names
+/// // Official names.
 /// assert_eq!(name_to_code("Canada"), Some("CA"));
 /// assert_eq!(name_to_code("Germany"), Some("DE"));
 ///
-/// // Alternative names and abbreviations
+/// // Aliases and abbreviations.
 /// assert_eq!(name_to_code("UK"), Some("GB"));
 /// assert_eq!(name_to_code("UAE"), Some("AE"));
 /// assert_eq!(name_to_code("USA"), Some("US"));
 ///
-/// // Government titles
+/// // Formal names.
 /// assert_eq!(name_to_code("Republic of Korea"), Some("KR"));
 /// assert_eq!(name_to_code("United States of America"), Some("US"));
 ///
-/// // Saint/St. normalization
+/// // Saint/St. normalization.
 /// assert_eq!(name_to_code("Saint Lucia"), Some("LC"));
 /// assert_eq!(name_to_code("St. Lucia"), Some("LC"));
 ///
-/// // Diacritic handling
+/// // Diacritic handling.
 /// assert_eq!(name_to_code("Cote d'Ivoire"), Some("CI"));
 /// assert_eq!(name_to_code("Côte d'Ivoire"), Some("CI"));
 ///
-/// // Invalid or ambiguous
-/// assert_eq!(name_to_code("Atlantis"), None);     // Non-existent
-/// assert_eq!(name_to_code("Korea"), None);        // Ambiguous
-/// assert_eq!(name_to_code("United"), None);       // Too vague
+/// // Invalid or ambiguous input.
+/// assert_eq!(name_to_code("Atlantis"), None);
+/// assert_eq!(name_to_code("Korea"), None);
+/// assert_eq!(name_to_code("United"), None);
 /// ```
 pub fn name_to_code(name: &str) -> Option<&'static str> {
     let trimmed_input = name.trim();
