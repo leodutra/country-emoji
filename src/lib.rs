@@ -81,7 +81,7 @@ use unidecode::unidecode;
 // This lets us convert between ASCII country-code letters and flag-symbol letters.
 const REGIONAL_INDICATOR_START: u32 = FLAG_MAGIC_NUMBER + b'A' as u32;
 const FLAG_MAGIC_NUMBER: u32 = 127462 - 65;
-const GOVERNMENT_PREFIXES: &[&str] = &[
+const GOVERNMENT_PREFIXES: &[&str; 13] = &[
     "the ",
     "federal republic of ",
     "republic of ",
@@ -97,7 +97,7 @@ const GOVERNMENT_PREFIXES: &[&str] = &[
     "socialist republic of ",
 ];
 
-const GOVERNMENT_SUFFIXES: &[&str] = &[
+const GOVERNMENT_SUFFIXES: &[&str; 5] = &[
     " republic",
     " federation",
     " kingdom",
@@ -105,9 +105,10 @@ const GOVERNMENT_SUFFIXES: &[&str] = &[
     " island",
 ];
 
-const AMBIGUOUS_STRIPPED_TERMS: &[&str] = &["korea", "guinea", "congo", "virgin", "samoa", "sudan"];
+const AMBIGUOUS_STRIPPED_TERMS: &[&str; 6] =
+    &["korea", "guinea", "congo", "virgin", "samoa", "sudan"];
 
-const GENERIC_WORDS: &[&str] = &[
+const GENERIC_WORDS: &[&str; 29] = &[
     "united",
     "republic",
     "democratic",
