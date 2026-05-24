@@ -154,6 +154,57 @@ type NormalizedCountryData = (NormalizedNameData, Vec<NormalizedNameData>, &'sta
 type CountryNameMap = HashMap<Arc<str>, &'static str>;
 type WordCountryIndex = HashMap<Arc<str>, Vec<usize>>;
 
+fn register_country_names(
+    map: &mut CountryNameMap,
+    word_index: &mut WordCountryIndex,
+    names: &'static [&'static str],
+    code: &'static str,
+    country_index: usize,
+) -> (NormalizedNameData, Vec<NormalizedNameData>) {
+    // Prepare normalized data
+    let primary_normalized_text: Arc<str> = Arc::from(normalize_text(names[0]));
+    index_variant_words(word_index, &primary_normalized_text, country_index);
+    let primary_normalized = build_normalized_name_data(primary_normalized_text.clone());
+
+    // Note: We insert primary_normalized_text in the loop below as well, but we need the
+    // tokenized representation for normalized_countries.
+
+    let mut all_variants = Vec::new();
+    for name in names {
+        let normalized_arc: Arc<str> = Arc::from(normalize_text(name));
+
+        if normalized_arc.as_ref() != primary_normalized.text.as_ref()
+            && !all_variants.iter().any(|variant: &NormalizedNameData| {
+                variant.text.as_ref() == normalized_arc.as_ref()
+            })
+        {
+            index_variant_words(word_index, &normalized_arc, country_index);
+            all_variants.push(build_normalized_name_data(normalized_arc.clone()));
+        }
+
+        // Explicit name - Force Insert (Overwrite derived if any)
+        map.insert(normalized_arc.clone(), code);
+
+        if let Some(articleless_variant) = remove_articles(normalized_arc.as_ref()) {
+            let articleless_arc: Arc<str> = Arc::from(articleless_variant.as_str());
+            map.entry(articleless_arc.clone()).or_insert(code);
+            index_variant_words(word_index, &articleless_arc, country_index);
+        }
+
+        // Add lowercased name to map
+        map.insert(Arc::from(name.to_lowercase()), code);
+
+        // Derived variants - Only Insert if Missing
+        for variant in strip_government_patterns(normalized_arc.as_ref()) {
+            let variant_arc: Arc<str> = Arc::from(variant.as_str());
+            map.entry(variant_arc.clone()).or_insert(code);
+            index_variant_words(word_index, &variant_arc, country_index);
+        }
+    }
+
+    (primary_normalized, all_variants)
+}
+
 static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>, WordCountryIndex)> =
     Lazy::new(|| {
         let mut map: CountryNameMap = HashMap::new();
@@ -168,46 +219,8 @@ static COUNTRIES_DATA: Lazy<(CountryNameMap, Vec<NormalizedCountryData>, WordCou
             let names = country.1;
             let country_index = normalized_countries.len();
 
-            // Prepare normalized data
-            let primary_normalized_text: Arc<str> = Arc::from(normalize_text(names[0]));
-            index_variant_words(&mut word_index, &primary_normalized_text, country_index);
-            let primary_normalized = build_normalized_name_data(primary_normalized_text.clone());
-
-            // Note: We insert primary_normalized_text in the loop below as well, but we need the
-            // tokenized representation for normalized_countries.
-
-            let mut all_variants = Vec::new();
-            for name in names {
-                let normalized_name = normalize_text(name);
-                let normalized_arc: Arc<str> = Arc::from(normalized_name);
-
-                if normalized_arc.as_ref() != primary_normalized.text.as_ref()
-                    && !all_variants.iter().any(|variant: &NormalizedNameData| {
-                        variant.text.as_ref() == normalized_arc.as_ref()
-                    })
-                {
-                    index_variant_words(&mut word_index, &normalized_arc, country_index);
-                    all_variants.push(build_normalized_name_data(normalized_arc.clone()));
-                }
-                // Explicit name - Force Insert (Overwrite derived if any)
-                map.insert(normalized_arc.clone(), code);
-
-                if let Some(articleless_variant) = remove_articles(normalized_arc.as_ref()) {
-                    let articleless_arc: Arc<str> = Arc::from(articleless_variant.as_str());
-                    map.entry(articleless_arc.clone()).or_insert(code);
-                    index_variant_words(&mut word_index, &articleless_arc, country_index);
-                }
-
-                // Add lowercased name to map
-                map.insert(Arc::from(name.to_lowercase()), code);
-
-                // Derived variants - Only Insert if Missing
-                for variant in strip_government_patterns(normalized_arc.as_ref()) {
-                    let variant_arc: Arc<str> = Arc::from(variant.as_str());
-                    map.entry(variant_arc.clone()).or_insert(code);
-                    index_variant_words(&mut word_index, &variant_arc, country_index);
-                }
-            }
+            let (primary_normalized, all_variants) =
+                register_country_names(&mut map, &mut word_index, names, code, country_index);
 
             normalized_countries.push((primary_normalized, all_variants, code));
         }
@@ -401,6 +414,7 @@ fn index_variant_words(
         .filter(|word| !is_too_generic(word))
     {
         let entry = word_index.entry(Arc::from(word)).or_default();
+
         if !entry.contains(&country_index) {
             entry.push(country_index);
         }
@@ -481,7 +495,7 @@ fn calculate_similarity_score(
     }
     let input_len = input.len();
     let country_len = country_name.text.len();
-    
+
     let length_ratio = if input_len > country_len {
         country_len as f32 / input_len as f32
     } else {
