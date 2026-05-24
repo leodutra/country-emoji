@@ -510,25 +510,25 @@ fn calculate_similarity_score(
         .count();
     let union = input_words.len() + country_words.len() - intersection;
 
-    if union > 0 {
-        let jaccard_score = intersection as f32 / union as f32;
-
-        if input_words.len() == 1 && country_words.len() > 1 {
-            return jaccard_score * 0.2;
-        }
-
-        let has_shared_primary = input_words
-            .iter()
-            .any(|&word| !is_too_generic(word) && contains_country_word(country_words, word));
-
-        if !has_shared_primary && intersection > 0 {
-            return jaccard_score * 0.1;
-        }
-
-        jaccard_score
-    } else {
-        0.0
+    if union == 0 {
+        return 0.0;
     }
+
+    let jaccard_score = intersection as f32 / union as f32;
+
+    if input_words.len() == 1 && country_words.len() > 1 {
+        return jaccard_score * 0.2;
+    }
+
+    let has_shared_primary = input_words
+        .iter()
+        .any(|&word| !is_too_generic(word) && contains_country_word(country_words, word));
+
+    if !has_shared_primary && intersection > 0 {
+        return jaccard_score * 0.1;
+    }
+
+    jaccard_score
 }
 
 #[inline]
