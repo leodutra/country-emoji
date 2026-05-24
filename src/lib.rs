@@ -481,6 +481,7 @@ fn calculate_similarity_score(
     }
     let input_len = input.len();
     let country_len = country_name.text.len();
+    
     let length_ratio = if input_len > country_len {
         country_len as f32 / input_len as f32
     } else {
@@ -490,6 +491,7 @@ fn calculate_similarity_score(
     if length_ratio < 0.2 {
         return 0.0;
     }
+
     if country_name.text.contains(input) {
         let containment_score = input_len as f32 / country_len as f32;
         if input_len <= 6 && containment_score < 0.6 {
@@ -508,6 +510,7 @@ fn calculate_similarity_score(
         .iter()
         .filter(|word| contains_country_word(country_words, word))
         .count();
+
     let union = input_words.len() + country_words.len() - intersection;
 
     if union == 0 {
